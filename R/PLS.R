@@ -10,7 +10,11 @@
 #' algorithm
 #' @param convergence convergence criterion. If the maximal change in the
 #' weights falls below this value, the estimation is stopped.
-#' @import cSEM
+#' @return list with weights, effects, and components
+#' @importFrom stats runif
+#' @importFrom stats cor
+#' @importFrom stats coef
+#' @importFrom stats lm
 #' @export
 #' @examples
 #' library(cSEM)
@@ -179,6 +183,13 @@ PLS <- function(measurement,
                            structure = structure)))
 }
 
+#' get_r2
+#'
+#' Compute the R squared value for a PLS-SEM
+#' @param PLS_result fitted PLS-SEM
+#' @return list with R squared
+#' @importFrom stats lm
+#' @export
 get_r2 <- function(PLS_result){
   r2 <- sapply(PLS_result$model$structure,
                function(x) summary(lm(x, data = as.data.frame(PLS_result$components)))$r.squared,

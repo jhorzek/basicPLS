@@ -1,0 +1,67 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
+
+# basicPLS
+
+> basicPLS should not be used for any relevant data analysis; We recommend cSEM instead.
+
+The objective of basicPLS is to provide a simple implementation of PLS-SEM to
+better understand the algorithm underlying the modeling approach. The implementation
+follows that found in [plspm](https://github.com/gastonstat/plspm). 
+
+The main function is `basicPLS::PLS` and fits PLS-SEM with formative measurement
+models.
+
+## Example:
+
+```{r, message=FALSE}
+library(cSEM)
+library(basicPLS)
+data_set <- 10*cSEM::threecommonfactors + 2
+PLS_result <- PLS(measurement = alist(eta1 ~ y11 + y12 + y13,
+                                      eta2 ~ y21 + y22 + y23,
+                                      eta3 ~ y31 + y32 + y33),
+                  structure = alist(eta2 ~ eta1,
+                                    eta3 ~ eta1 + eta2),
+                  data = data_set)
+
+# same thing with cSEM
+model <- "
+# Structural model
+eta2 ~ eta1
+eta3 ~ eta1 + eta2
+
+# measurement model
+eta1 <~ y11 + y12 + y13
+eta2 <~ y21 + y22 + y23
+eta3 <~ y31 + y32 + y33
+"
+fit_csem <- csem(data_set,
+                 model,
+                 .PLS_modes = "modeB")
+# Let's compare the results:
+fit_csem$Estimates$Weight_estimates
+PLS_result$weights
+
+fit_csem$Estimates$Path_estimates
+PLS_result$effects
+
+head(fit_csem$Estimates$Construct_scores -
+       PLS_result$components)
+
+assess(fit_csem, "r2")
+get_r2(PLS_result)
+```
+
