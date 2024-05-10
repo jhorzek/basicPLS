@@ -72,6 +72,10 @@ PLS <- function(measurement,
   # names of the constructs to the list elements.
   observables <- sapply(measurement, function(x) all.vars(x)[-1], simplify = FALSE)
   names(observables) <- components
+  # Check if all observables are in the data set:
+  if(any(!unlist(observables) %in% colnames(data_std)))
+    stop("The following observables were not found in the data set: ",
+         paste0(unlist(observables)[!unlist(observables) %in% colnames(data_std)], collapse = ", "), ".")
 
   # Now, we construct a matrix indicating which of the components has an effect on
   # which other component. To this end, we will have to check the structure.
@@ -104,7 +108,11 @@ PLS <- function(measurement,
   # component-specific weights.
   weights <- sapply(observables,
                     function(x) {
-                      w <- runif(length(x), min = .1, max = .5)
+                      if(length(x) == 1){
+                        w <- c(1)}
+                      else{
+                        w <- runif(length(x), min = .1, max = .5)
+                      }
                       names(w) <- x
                       return(w)
                     },
@@ -117,7 +125,7 @@ PLS <- function(measurement,
     #### Outer Model ####
     # First, we predict the components using the weights and the data.
     component_values <- sapply(weights,
-                               function(x) data_std[, names(x)] %*% matrix(x, ncol = 1))
+                               function(x) data_std[, names(x), drop = FALSE] %*% matrix(x, ncol = 1))
     # Next, we scale the components
     component_values <- scale(component_values)*sqrt((N-1)/N)
 
@@ -158,7 +166,7 @@ PLS <- function(measurement,
   # time through the steps above.
   # Predict components:
   component_values <- sapply(weights,
-                             function(x) data_std[, names(x)] %*% matrix(x, ncol = 1))
+                             function(x) data_std[, names(x), drop = FALSE] %*% matrix(x, ncol = 1))
   # Scale components:
   component_values <- scale(component_values)*sqrt((N-1)/N)
 
