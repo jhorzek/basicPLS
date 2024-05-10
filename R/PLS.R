@@ -59,7 +59,7 @@ PLS <- function(measurement,
                 convergence = 1e-5){
   # We will need the sample size to correct the standard deviations from R.
   N <- nrow(data)
-  data <- scale(data)*sqrt((N-1)/N)
+  data_std <- scale(data)*sqrt((N-1)/N)
 
   #### Preparation ####
   # We will first extract all components from the measurement structure. To this
@@ -117,7 +117,7 @@ PLS <- function(measurement,
     #### Outer Model ####
     # First, we predict the components using the weights and the data.
     component_values <- sapply(weights,
-                               function(x) data[, names(x)] %*% matrix(x, ncol = 1))
+                               function(x) data_std[, names(x)] %*% matrix(x, ncol = 1))
     # Next, we scale the components
     component_values <- scale(component_values)*sqrt((N-1)/N)
 
@@ -136,7 +136,7 @@ PLS <- function(measurement,
     # Finally, we update the weights by predicting the component values with the
     # observed data using linear regressions.
     weights_upd <- sapply(measurement,
-                          function(x) coef(lm(x, data = as.data.frame(cbind(data, component_values))))[-1],
+                          function(x) coef(lm(x, data = as.data.frame(cbind(data_std, component_values))))[-1],
                           simplify = FALSE)
     names(weights_upd) <- names(weights)
 
@@ -158,16 +158,22 @@ PLS <- function(measurement,
   # time through the steps above.
   # Predict components:
   component_values <- sapply(weights,
-                             function(x) data[, names(x)] %*% matrix(x, ncol = 1))
+                             function(x) data_std[, names(x)] %*% matrix(x, ncol = 1))
   # Scale components:
   component_values <- scale(component_values)*sqrt((N-1)/N)
 
   # Compute the final weights
   weights_upd <- sapply(measurement,
-                        function(x) coef(lm(x, data = as.data.frame(cbind(data, component_values))))[-1],
+                        function(x) coef(lm(x, data = as.data.frame(cbind(data_std, component_values))))[-1],
                         simplify = FALSE)
   names(weights_upd) <- names(weights)
   weights <- weights_upd
+
+  # unstandardized weights
+  weights_unstandardized <-  sapply(measurement,
+                                    function(x) coef(lm(x, data = as.data.frame(cbind(data, component_values))))[-1],
+                                    simplify = FALSE)
+  names(weights_unstandardized) <- names(weights)
 
   # Compute effects as linear regressions between the components:
   effects <- sapply(structure,
@@ -178,6 +184,7 @@ PLS <- function(measurement,
   # Return results:
   return(list(components = component_values,
               weights = weights,
+              weights_unstandardized = weights_unstandardized,
               effects = effects,
               model = list(measurement = measurement,
                            structure = structure)))
