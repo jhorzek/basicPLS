@@ -36,6 +36,7 @@ PLS_result <- PLS(measurement = alist(eta1 ~ y11 + y12 + y13,
                   structure = alist(eta2 ~ eta1,
                                     eta3 ~ eta1 + eta2),
                   data = data_set)
+PLS_result
 
 # same thing with cSEM
 model <- "
@@ -51,6 +52,7 @@ eta3 <~ y31 + y32 + y33
 fit_csem <- csem(data_set,
                  model,
                  .PLS_modes = "modeB")
+
 # Let's compare the results:
 fit_csem$Estimates$Weight_estimates
 PLS_result$weights

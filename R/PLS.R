@@ -57,6 +57,15 @@ PLS <- function(measurement,
                 data,
                 max_iterations = 1000,
                 convergence = 1e-5){
+  # save input; this will make computing the standard errors easier
+  input <- list(
+    measurement = measurement,
+    structure = structure,
+    data = data,
+    max_iterations = max_iterations,
+    convergence = convergence
+  )
+
   # We will need the sample size to correct the standard deviations from R.
   N <- nrow(data)
   data_std <- scale(data)*sqrt((N-1)/N)
@@ -182,12 +191,99 @@ PLS <- function(measurement,
   names(effects) <- sapply(structure, function(x) all.vars(x)[1])
 
   # Return results:
-  return(list(components = component_values,
-              weights = weights,
-              weights_unstandardized = weights_unstandardized,
-              effects = effects,
-              model = list(measurement = measurement,
-                           structure = structure)))
+  result <- list(components = component_values,
+                 weights = weights,
+                 weights_unstandardized = weights_unstandardized,
+                 effects = effects,
+                 input = input)
+  class(result) <- "PLS_SEM"
+  return(result)
+}
+
+#' print.PLS_SEM
+#'
+#' Print results of PLS SEM
+#' @param x PLS SEM model
+#' @param ... not used
+#' @returns nothing
+#' @export
+print.PLS_SEM <- function(x, ...){
+  cat("\n#### PLS SEM Results ####\n")
+  cat("Component Weights:\n")
+  for(comp in names(x$weights)){
+    cat(paste0(comp, " = ",
+               paste0(paste0(format(round(x$weights[[comp]], 3), nsmall = 3), "*", names(x$weights[[comp]])),
+                      collapse = " + ")),
+        "\n")
+  }
+  cat("\nEffects:\n")
+  for(comp in names(x$effects)){
+    cat(paste0(comp, " ~ ",
+               paste0(paste0(format(round(x$effects[[comp]], 3), nsmall = 3), "*", names(x$effects[[comp]])),
+                      collapse = " + ")),
+        "\n")
+  }
+}
+
+#' coef.PLS_SEM
+#'
+#' Coefficient of PLS SEM
+#' @param object PLS_SEM object
+#' @param ... not used
+#' @returns vector with parameters
+#' @importFrom stats coef
+#' @export
+coef.PLS_SEM <- function(object, ...){
+  par_values <- c()
+  par_names  <- c()
+  for(comp in names(object$weights)){
+    par_values <- c(par_values, object$weights[[comp]])
+    par_names <- c(par_names, paste0(comp, " <~ ", names(object$weights[[comp]])))
+  }
+  for(comp in names(object$effects)){
+    par_values <- c(par_values, object$effects[[comp]])
+    par_names <- c(par_names, paste0(comp, " ~ ", names(object$effects[[comp]])))
+  }
+  names(par_values) <- par_names
+  return(par_values)
+}
+
+#' standard_errors
+#'
+#' Compute standard errors using bootstrap samples
+#' @param PLS_result results from PLS
+#' @param R number of repetitions
+#' @returns boostrap results
+#' @importFrom boot boot
+#' @importFrom stats sd
+#' @export
+standard_errors <- function(PLS_result,
+                            R = 1000){
+
+  bootstrap_pls <- function(dat,
+                            indices,
+                            measurement,
+                            structure,
+                            max_iterations,
+                            convergence){
+    fit_results <- suppressMessages(basicPLS::PLS(measurement = measurement,
+                                                  structure = structure,
+                                                  data = dat[indices,, drop = FALSE],
+                                                  max_iterations = max_iterations,
+                                                  convergence = convergence))
+    return(coef(fit_results))
+  }
+  # bootstrapping with 1000 replications
+  results <- boot::boot(PLS_result$input$data,
+                        statistic = bootstrap_pls,
+                        R = R,
+                        measurement = PLS_result$input$measurement,
+                        structure = PLS_result$input$structure,
+                        max_iterations = PLS_result$input$max_iterations,
+                        convergence = PLS_result$input$convergence)
+  colnames(results$t) <- names(results$t0)
+  se <- apply(results$t, 2, sd)
+  return(se)
 }
 
 #' get_r2
@@ -196,9 +292,12 @@ PLS <- function(measurement,
 #' @param PLS_result fitted PLS-SEM
 #' @return list with R squared
 #' @importFrom stats lm
+#' @importFrom methods is
 #' @export
 get_r2 <- function(PLS_result){
-  r2 <- sapply(PLS_result$model$structure,
+  if(!is(PLS_result, "PLS_SEM"))
+    stop("PLS_result must be of class PLS_SEM")
+  r2 <- sapply(PLS_result$input$structure,
                function(x) summary(lm(x, data = as.data.frame(PLS_result$components)))$r.squared,
                simplify = FALSE)
   names(r2) <- names(PLS_result$effects)
