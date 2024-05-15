@@ -1,7 +1,7 @@
-#' PLS
+#' PLSP
 #'
-#' Basic function estimating a PLS-SEM with formative measurement model. The
-#' weights are estimated with the centroid estimation approach.
+#' Basic function estimating a PLSP-SEM with formative measurement model. The
+#' weights are estimated with the path estimation approach.
 #' The algorithm is adapted from https://github.com/gastonstat/plspm.
 #'
 #' @param measurement alist with formulas defining the measurements
@@ -20,7 +20,7 @@
 #' @examples
 #' library(cSEM)
 #' data_set <- 10*cSEM::threecommonfactors + 2
-#' PLS_result <- PLS(measurement = alist(eta1 ~ y11 + y12 + y13,
+#' PLSP_result <- PLSP(measurement = alist(eta1 ~ y11 + y12 + y13,
 #'                                       eta2 ~ y21 + y22 + y23,
 #'                                       eta3 ~ y31 + y32 + y33),
 #'                   structure = alist(eta2 ~ eta1,
@@ -43,21 +43,21 @@
 #'                  .PLS_modes = "modeB")
 #' # Let's compare the results:
 #' fit_csem$Estimates$Weight_estimates
-#' PLS_result$weights
+#' PLSP_result$weights
 #'
 #' fit_csem$Estimates$Path_estimates
-#' PLS_result$effects
+#' PLSP_result$effects
 #'
 #' head(fit_csem$Estimates$Construct_scores -
-#'        PLS_result$components)
+#'        PLSP_result$components)
 #'
 #' assess(fit_csem, "r2")
-#' get_r2(PLS_result)
-PLS <- function(measurement,
-                structure,
-                data,
-                max_iterations = 1000,
-                convergence = 1e-5){
+#' get_r2(PLSP_result)
+PLSP <- function(measurement,
+                 structure,
+                 data,
+                 max_iterations = 1000,
+                 convergence = 1e-5){
   # save input; this will make computing the standard errors easier
   input <- list(
     measurement = measurement,
@@ -142,11 +142,19 @@ PLS <- function(measurement,
     #### Inner Model ####
     # We compute the correlations of the components.
     component_correlation <- cor(component_values)
-    # Now, we take the component structure into account by creating a structure
-    # matrix that has 1 if adjacent components are positively correlated, -1
-    # if they are negatively correlated, and 0 otherwise.
-    effects_matrix <- sign(component_correlation) *
+    # For the effects, we first place all correlations between related
+    # variables into a matrix
+    effects_matrix <- component_correlation *
       adjacency_matrix[colnames(component_values), colnames(component_values)]
+    # Now, we replace all correlations with regression weights for endoganous
+    # variables
+    effects <- sapply(structure,
+                      function(x) coef(lm(x, data = as.data.frame(component_values)))[-1],
+                      simplify = FALSE)
+    names(effects) <- sapply(structure, function(x) all.vars(x)[1])
+    for(effect in names(effects)){
+      effects_matrix[effect, names(effects[[effect]])] <- effects[[effect]]
+    }
 
     # With this effects matrix, we update the components:
     component_values <- component_values %*% effects_matrix
@@ -205,27 +213,27 @@ PLS <- function(measurement,
                  weights_unstandardized = weights_unstandardized,
                  effects = effects,
                  input = input)
-  class(result) <- "PLS_SEM"
+  class(result) <- "PLSP_SEM"
   return(result)
 }
 
-#' print.PLS_SEM
+#' print.PLSP_SEM
 #'
-#' Print results of PLS SEM
-#' @param x PLS SEM model
+#' Print results of PLSP SEM
+#' @param x PLSP SEM model
 #' @param ... not used
 #' @returns nothing
 #' @export
-print.PLS_SEM <- function(x, ...){
-  cat("\n#### PLS SEM Results ####\n")
-  cat("Component Weights:\n")
+print.PLSP_SEM <- function(x, ...){
+  cat("\n#### PLSP SEM Results ####\n\n")
+  cat(">> Component Weights:\n")
   for(comp in names(x$weights)){
     cat(paste0(comp, " = ",
                paste0(paste0(format(round(x$weights[[comp]], 3), nsmall = 3), "*", names(x$weights[[comp]])),
                       collapse = " + ")),
         "\n")
   }
-  cat("\nEffects:\n")
+  cat("\n>> Effects:\n")
   for(comp in names(x$effects)){
     cat(paste0(comp, " ~ ",
                paste0(paste0(format(round(x$effects[[comp]], 3), nsmall = 3), "*", names(x$effects[[comp]])),
@@ -234,15 +242,15 @@ print.PLS_SEM <- function(x, ...){
   }
 }
 
-#' coef.PLS_SEM
+#' coef.PLSP_SEM
 #'
-#' Coefficient of PLS SEM
-#' @param object PLS_SEM object
+#' Coefficient of PLSP SEM
+#' @param object PLSP_SEM object
 #' @param ... not used
 #' @returns vector with parameters
 #' @importFrom stats coef
 #' @export
-coef.PLS_SEM <- function(object, ...){
+coef.PLSP_SEM <- function(object, ...){
   par_values <- c()
   par_names  <- c()
   for(comp in names(object$weights)){
@@ -256,59 +264,3 @@ coef.PLS_SEM <- function(object, ...){
   names(par_values) <- par_names
   return(par_values)
 }
-
-#' standard_errors
-#'
-#' Compute standard errors using bootstrap samples
-#' @param PLS_result results from PLS
-#' @param R number of repetitions
-#' @returns boostrap results
-#' @importFrom boot boot
-#' @importFrom stats sd
-#' @export
-standard_errors <- function(PLS_result,
-                            R = 1000){
-
-  bootstrap_pls <- function(dat,
-                            indices,
-                            measurement,
-                            structure,
-                            max_iterations,
-                            convergence){
-    fit_results <- suppressMessages(basicPLS::PLS(measurement = measurement,
-                                                  structure = structure,
-                                                  data = dat[indices,, drop = FALSE],
-                                                  max_iterations = max_iterations,
-                                                  convergence = convergence))
-    return(coef(fit_results))
-  }
-  # bootstrapping with 1000 replications
-  results <- boot::boot(PLS_result$input$data,
-                        statistic = bootstrap_pls,
-                        R = R,
-                        measurement = PLS_result$input$measurement,
-                        structure = PLS_result$input$structure,
-                        max_iterations = PLS_result$input$max_iterations,
-                        convergence = PLS_result$input$convergence)
-  colnames(results$t) <- names(results$t0)
-  se <- apply(results$t, 2, sd)
-  return(se)
-}
-
-#' get_r2
-#'
-#' Compute the R squared value for a PLS-SEM
-#' @param PLS_result fitted PLS-SEM
-#' @return list with R squared
-#' @importFrom stats lm
-#' @importFrom methods is
-#' @export
-get_r2 <- function(PLS_result){
-  r2 <- sapply(PLS_result$input$structure,
-               function(x) summary(lm(x, data = as.data.frame(PLS_result$components)))$r.squared,
-               simplify = FALSE)
-  names(r2) <- names(PLS_result$effects)
-  return(r2)
-}
-
-
