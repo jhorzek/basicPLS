@@ -1,12 +1,13 @@
 #' PLS
 #'
-#' Basic function estimating a PLS-SEM with formative measurement model. The
-#' weights are estimated with the centroid estimation approach.
+#' Basic function estimating a PLS-SEM with formative measurement model.
 #' The algorithm is adapted from https://github.com/gastonstat/plspm.
 #'
 #' @param measurement alist with formulas defining the measurements
 #' @param structure alist with formulas defining structural model
 #' @param data data set (data.frame)
+#' @param path_estimation how should the inner paths be estimated? Available
+#' are "centroid" and "regression" based estimation.
 #' @param max_iterations maximal number of iterations for the estimation
 #' algorithm
 #' @param convergence convergence criterion. If the maximal change in the
@@ -19,6 +20,7 @@
 #' @export
 #' @examples
 #' library(cSEM)
+#' library(basicPLS)
 #' data_set <- 10*cSEM::threecommonfactors + 2
 #' PLS_result <- PLS(measurement = alist(eta1 ~ y11 + y12 + y13,
 #'                                       eta2 ~ y21 + y22 + y23,
@@ -40,7 +42,35 @@
 #' "
 #' fit_csem <- csem(data_set,
 #'                  model,
-#'                  .PLS_modes = "modeB")
+#'                  .PLS_modes = "modeB",
+#'                  .PLS_weight_scheme_inner = "centroid")
+#' # Let's compare the results:
+#' fit_csem$Estimates$Weight_estimates
+#' PLS_result$weights
+#'
+#' fit_csem$Estimates$Path_estimates
+#' PLS_result$effects
+#'
+#' head(fit_csem$Estimates$Construct_scores -
+#'        PLS_result$components)
+#'
+#' assess(fit_csem, "r2")
+#' get_r2(PLS_result)
+#'
+#' # We can fit the same model with the regression scheme:
+#' PLS_result <- PLS(measurement = alist(eta1 ~ y11 + y12 + y13,
+#'                                       eta2 ~ y21 + y22 + y23,
+#'                                       eta3 ~ y31 + y32 + y33),
+#'                   structure = alist(eta2 ~ eta1,
+#'                                     eta3 ~ eta1 + eta2),
+#'                   data = data_set,
+#'                   path_estimation = "regression")
+#'
+#' # same thing with cSEM
+#' fit_csem <- csem(data_set,
+#'                  model,
+#'                  .PLS_modes = "modeB",
+#'                  .PLS_weight_scheme_inner = "path")
 #' # Let's compare the results:
 #' fit_csem$Estimates$Weight_estimates
 #' PLS_result$weights
@@ -56,6 +86,7 @@
 PLS <- function(measurement,
                 structure,
                 data,
+                path_estimation = "centroid",
                 max_iterations = 1000,
                 convergence = 1e-5){
   # save input; this will make computing the standard errors easier
@@ -121,7 +152,7 @@ PLS <- function(measurement,
                       if(length(x) == 1){
                         w <- c(1)}
                       else{
-                        w <- runif(length(x), min = .1, max = .5)
+                        w <- rep(1, length(x))
                       }
                       names(w) <- x
                       return(w)
@@ -143,11 +174,32 @@ PLS <- function(measurement,
     # We compute the correlations of the components.
     component_correlation <- cor(component_values)
     # Now, we take the component structure into account by creating a structure
-    # matrix that has 1 if adjacent components are positively correlated, -1
-    # if they are negatively correlated, and 0 otherwise.
-    effects_matrix <- sign(component_correlation) *
-      adjacency_matrix[colnames(component_values), colnames(component_values)]
-
+    # matrix.
+    if(path_estimation == "centroid"){
+      # For the centroid approach, we simply replace all correlations between
+      # unrelated constructs with 0. If constructs are related, we put a 1 in the
+      # as effect if the correlation is positive and a -1 if the correlation is negative.
+      effects_matrix <- sign(component_correlation) *
+        adjacency_matrix[colnames(component_values), colnames(component_values)]
+    }else if(path_estimation == "regression"){
+      # For the path estimation, we first set all correlations of unrelated
+      # variables to zero
+      effects_matrix <- component_correlation *
+        adjacency_matrix[colnames(component_values), colnames(component_values)]
+      # Now, we replace all correlations with regression weights for endogenous
+      # variables:
+      effects <- sapply(structure,
+                        function(x) coef(lm(x, data = as.data.frame(component_values)))[-1],
+                        simplify = FALSE)
+      names(effects) <- sapply(structure, function(x) all.vars(x)[1])
+      for(effect in names(effects)){
+        # Note that we have to put the effects into the columns as we are using
+        # the matrix multiplication component_values %*% effects_matrix below.
+        effects_matrix[names(effects[[effect]]), effect] <- effects[[effect]]
+      }
+    }else{
+      stop("Unknown path_estimation selected. Only centroid and regression are supported.")
+    }
     # With this effects matrix, we update the components:
     component_values <- component_values %*% effects_matrix
 

@@ -4,7 +4,14 @@
 \alias{PLS}
 \title{PLS}
 \usage{
-PLS(measurement, structure, data, max_iterations = 1000, convergence = 1e-05)
+PLS(
+  measurement,
+  structure,
+  data,
+  path_estimation = "centroid",
+  max_iterations = 1000,
+  convergence = 1e-05
+)
 }
 \arguments{
 \item{measurement}{alist with formulas defining the measurements}
@@ -12,6 +19,9 @@ PLS(measurement, structure, data, max_iterations = 1000, convergence = 1e-05)
 \item{structure}{alist with formulas defining structural model}
 
 \item{data}{data set (data.frame)}
+
+\item{path_estimation}{how should the inner paths be estimated? Available
+are "centroid" and "regression" based estimation.}
 
 \item{max_iterations}{maximal number of iterations for the estimation
 algorithm}
@@ -23,12 +33,12 @@ weights falls below this value, the estimation is stopped.}
 list with weights, effects, and components
 }
 \description{
-Basic function estimating a PLS-SEM with formative measurement model. The
-weights are estimated with the centroid estimation approach.
+Basic function estimating a PLS-SEM with formative measurement model.
 The algorithm is adapted from https://github.com/gastonstat/plspm.
 }
 \examples{
 library(cSEM)
+library(basicPLS)
 data_set <- 10*cSEM::threecommonfactors + 2
 PLS_result <- PLS(measurement = alist(eta1 ~ y11 + y12 + y13,
                                       eta2 ~ y21 + y22 + y23,
@@ -50,7 +60,35 @@ eta3 <~ y31 + y32 + y33
 "
 fit_csem <- csem(data_set,
                  model,
-                 .PLS_modes = "modeB")
+                 .PLS_modes = "modeB",
+                 .PLS_weight_scheme_inner = "centroid")
+# Let's compare the results:
+fit_csem$Estimates$Weight_estimates
+PLS_result$weights
+
+fit_csem$Estimates$Path_estimates
+PLS_result$effects
+
+head(fit_csem$Estimates$Construct_scores -
+       PLS_result$components)
+
+assess(fit_csem, "r2")
+get_r2(PLS_result)
+
+# We can fit the same model with the regression scheme:
+PLS_result <- PLS(measurement = alist(eta1 ~ y11 + y12 + y13,
+                                      eta2 ~ y21 + y22 + y23,
+                                      eta3 ~ y31 + y32 + y33),
+                  structure = alist(eta2 ~ eta1,
+                                    eta3 ~ eta1 + eta2),
+                  data = data_set,
+                  path_estimation = "regression")
+
+# same thing with cSEM
+fit_csem <- csem(data_set,
+                 model,
+                 .PLS_modes = "modeB",
+                 .PLS_weight_scheme_inner = "path")
 # Let's compare the results:
 fit_csem$Estimates$Weight_estimates
 PLS_result$weights
