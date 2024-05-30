@@ -98,9 +98,7 @@ PLS <- function(measurement,
     convergence = convergence
   )
 
-  # We will need the sample size to correct the standard deviations from R.
-  N <- nrow(data)
-  data_std <- scale(data)*sqrt((N-1)/N)
+  data_std <- scale(data)
 
   #### Preparation ####
   # We will first extract all components from the measurement structure. To this
@@ -149,11 +147,7 @@ PLS <- function(measurement,
   # component-specific weights.
   weights <- sapply(observables,
                     function(x) {
-                      if(length(x) == 1){
-                        w <- c(1)}
-                      else{
-                        w <- rep(1, length(x))
-                      }
+                      w <- rep(1, length(x))
                       names(w) <- x
                       return(w)
                     },
@@ -168,7 +162,7 @@ PLS <- function(measurement,
     component_values <- sapply(weights,
                                function(x) data_std[, names(x), drop = FALSE] %*% matrix(x, ncol = 1))
     # Next, we scale the components
-    component_values <- scale(component_values)*sqrt((N-1)/N)
+    component_values <- scale(component_values)
 
     #### Inner Model ####
     # We compute the correlations of the components.
@@ -230,7 +224,7 @@ PLS <- function(measurement,
   component_values <- sapply(weights,
                              function(x) data_std[, names(x), drop = FALSE] %*% matrix(x, ncol = 1))
   # Scale components:
-  component_values <- scale(component_values)*sqrt((N-1)/N)
+  component_values <- scale(component_values)
 
   # Compute the final weights
   weights_upd <- sapply(measurement,
@@ -325,11 +319,13 @@ standard_errors <- function(PLS_result,
                             indices,
                             measurement,
                             structure,
+                            path_estimation,
                             max_iterations,
                             convergence){
     fit_results <- suppressMessages(basicPLS::PLS(measurement = measurement,
                                                   structure = structure,
                                                   data = dat[indices,, drop = FALSE],
+                                                  path_estimation = path_estimation,
                                                   max_iterations = max_iterations,
                                                   convergence = convergence))
     return(coef(fit_results))
@@ -340,6 +336,7 @@ standard_errors <- function(PLS_result,
                         R = R,
                         measurement = PLS_result$input$measurement,
                         structure = PLS_result$input$structure,
+                        path_estimation = PLS_result$input$path_estimation,
                         max_iterations = PLS_result$input$max_iterations,
                         convergence = PLS_result$input$convergence)
   colnames(results$t) <- names(results$t0)
