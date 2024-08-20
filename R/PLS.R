@@ -6,6 +6,7 @@
 #' @param measurement alist with formulas defining the measurements
 #' @param structure alist with formulas defining structural model
 #' @param data data set (data.frame)
+#' @param sample_weights data weights for weighted PLS-SEM
 #' @param path_estimation how should the inner paths be estimated? Available
 #' are "centroid" and "regression" based estimation.
 #' @param max_iterations maximal number of iterations for the estimation
@@ -17,6 +18,7 @@
 #' @importFrom stats cor
 #' @importFrom stats coef
 #' @importFrom stats lm
+#' @importFrom corpcor
 #' @export
 #' @examples
 #' library(cSEM)
@@ -86,19 +88,27 @@
 PLS <- function(measurement,
                 structure,
                 data,
+                sample_weights = NULL,
                 path_estimation = "centroid",
                 max_iterations = 1000,
                 convergence = 1e-5){
+  if(!is.null(sample_weights)){
+    if(length(sample_weights) != nrow(data))
+      stop("There must be one weight for each row in the data set.")
+  }else{
+    sample_weights <- rep(1, nrow(data))
+  }
+
   # save input; this will make computing the standard errors easier
   input <- list(
     measurement = measurement,
     structure = structure,
     data = data,
+    path_estimation = path_estimation,
+    sample_weights = sample_weights,
     max_iterations = max_iterations,
     convergence = convergence
   )
-
-  data_std <- scale(data)
 
   #### Preparation ####
   # We will first extract all components from the measurement structure. To this
@@ -112,9 +122,13 @@ PLS <- function(measurement,
   observables <- sapply(measurement, function(x) all.vars(x)[-1], simplify = FALSE)
   names(observables) <- components
   # Check if all observables are in the data set:
-  if(any(!unlist(observables) %in% colnames(data_std)))
+  if(any(!unlist(observables) %in% colnames(data)))
     stop("The following observables were not found in the data set: ",
-         paste0(unlist(observables)[!unlist(observables) %in% colnames(data_std)], collapse = ", "), ".")
+         paste0(unlist(observables)[!unlist(observables) %in% colnames(data)], collapse = ", "), ".")
+
+
+  data_std <- corpcor::wt.scale(data[, unique(unlist(observables))],
+                                w = sample_weights)
 
   # Now, we construct a matrix indicating which of the components has an effect on
   # which other component. To this end, we will have to check the structure.
@@ -159,14 +173,18 @@ PLS <- function(measurement,
 
     #### Outer Model ####
     # First, we predict the components using the weights and the data.
+    # As we don't estimate any parameters here, no weighting is needed.
     component_values <- sapply(weights,
                                function(x) data_std[, names(x), drop = FALSE] %*% matrix(x, ncol = 1))
-    # Next, we scale the components
-    component_values <- scale(component_values)
+    # Next, we scale the components. Here, we use the weights to compute the
+    # means and covariances.
+    component_values <- corpcor::wt.scale(component_values, w = sample_weights)
 
     #### Inner Model ####
     # We compute the correlations of the components.
-    component_correlation <- cor(component_values)
+    component_correlation <- stats::cov.wt(component_values,
+                                           wt = sample_weights,
+                                           cor = TRUE)$cor
     # Now, we take the component structure into account by creating a structure
     # matrix.
     if(path_estimation == "centroid"){
@@ -183,7 +201,9 @@ PLS <- function(measurement,
       # Now, we replace all correlations with regression weights for endogenous
       # variables:
       effects <- sapply(structure,
-                        function(x) coef(lm(x, data = as.data.frame(component_values)))[-1],
+                        function(x) regression_coef(formula = x,
+                                                    data = as.data.frame(component_values),
+                                                    wt = sample_weights)[-1],
                         simplify = FALSE)
       names(effects) <- sapply(structure, function(x) all.vars(x)[1])
       for(effect in names(effects)){
@@ -200,7 +220,9 @@ PLS <- function(measurement,
     # Finally, we update the weights by predicting the component values with the
     # observed data using linear regressions.
     weights_upd <- sapply(measurement,
-                          function(x) coef(lm(x, data = as.data.frame(cbind(data_std, component_values))))[-1],
+                          function(x) regression_coef(formula = x,
+                                                      data = as.data.frame(cbind(data_std, component_values)),
+                                                      wt = sample_weights)[-1],
                           simplify = FALSE)
     names(weights_upd) <- names(weights)
 
@@ -228,20 +250,26 @@ PLS <- function(measurement,
 
   # Compute the final weights
   weights_upd <- sapply(measurement,
-                        function(x) coef(lm(x, data = as.data.frame(cbind(data_std, component_values))))[-1],
+                        function(x) regression_coef(x,
+                                                    data = as.data.frame(cbind(data_std, component_values)),
+                                                    wt = sample_weights)[-1],
                         simplify = FALSE)
   names(weights_upd) <- names(weights)
   weights <- weights_upd
 
   # unstandardized weights
   weights_unstandardized <-  sapply(measurement,
-                                    function(x) coef(lm(x, data = as.data.frame(cbind(data, component_values))))[-1],
+                                    function(x) regression_coef(x,
+                                                                data = as.data.frame(cbind(data, component_values)),
+                                                                wt = sample_weights)[-1],
                                     simplify = FALSE)
   names(weights_unstandardized) <- names(weights)
 
   # Compute effects as linear regressions between the components:
   effects <- sapply(structure,
-                    function(x) coef(lm(x, data = as.data.frame(component_values)))[-1],
+                    function(x) regression_coef(x,
+                                                data = as.data.frame(component_values),
+                                                wt = sample_weights)[-1],
                     simplify = FALSE)
   names(effects) <- sapply(structure, function(x) all.vars(x)[1])
 
@@ -303,6 +331,23 @@ coef.PLS_SEM <- function(object, ...){
   return(par_values)
 }
 
+# We will have to run multiple regressions and extract the coefficients. The
+# following makes this a bit easier to read:
+#' regression_coef
+#'
+#' Computes regression coefficients and allows weighting. This function is necessary
+#' to re-assign the environment of the formula and make sure that R finds the weights.
+#' @param formula regression formula
+#' @param data data set
+#' @param weights sample weights vector
+#' @returns regression coefficients
+#' @keywords internal
+regression_coef <- function(formula, data, wt = NULL){
+  formula <- as.formula(formula)
+  environment(formula) <- environment()
+  return(coef(lm(formula = formula, data = data , weights = wt)))
+}
+
 #' standard_errors
 #'
 #' Compute standard errors using bootstrap samples
@@ -319,12 +364,14 @@ standard_errors <- function(PLS_result,
                             indices,
                             measurement,
                             structure,
+                            sample_weights,
                             path_estimation,
                             max_iterations,
                             convergence){
     fit_results <- suppressMessages(basicPLS::PLS(measurement = measurement,
                                                   structure = structure,
                                                   data = dat[indices,, drop = FALSE],
+                                                  sample_weights = sample_weights[indices],
                                                   path_estimation = path_estimation,
                                                   max_iterations = max_iterations,
                                                   convergence = convergence))
@@ -336,6 +383,7 @@ standard_errors <- function(PLS_result,
                         R = R,
                         measurement = PLS_result$input$measurement,
                         structure = PLS_result$input$structure,
+                        sample_weights = PLS_result$input$sample_weights,
                         path_estimation = PLS_result$input$path_estimation,
                         max_iterations = PLS_result$input$max_iterations,
                         convergence = PLS_result$input$convergence)
@@ -354,7 +402,9 @@ standard_errors <- function(PLS_result,
 #' @export
 get_r2 <- function(PLS_result){
   r2 <- sapply(PLS_result$input$structure,
-               function(x) summary(lm(x, data = as.data.frame(PLS_result$components)))$r.squared,
+               function(x) summary(lm(as.formula(x),
+                                      data = as.data.frame(PLS_result$components),
+                                      weights = PLS_result$input$sample_weights))$r.squared,
                simplify = FALSE)
   names(r2) <- names(PLS_result$effects)
   return(r2)
