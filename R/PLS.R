@@ -30,7 +30,8 @@
 #'                                       eta3 ~ y31 + y32 + y33),
 #'                   structure = alist(eta2 ~ eta1,
 #'                                     eta3 ~ eta1 + eta2),
-#'                   data = data_set)
+#'                   data = data_set,
+#'                   path_estimation = "centroid")
 #'
 #' # same thing with cSEM
 #' model <- "
@@ -90,7 +91,7 @@ PLS <- function(measurement,
                 structure,
                 data,
                 sample_weights = NULL,
-                path_estimation = "centroid",
+                path_estimation = "regression",
                 max_iterations = 1000,
                 convergence = 1e-5){
   if(!is.null(sample_weights)){
@@ -352,17 +353,20 @@ regression_coef <- function(formula, data, wt = NULL){
   return(coef(lm(formula = formula, data = data , weights = wt)))
 }
 
-#' standard_errors
+#' confidence_intervals
 #'
-#' Compute standard errors using bootstrap samples
+#' Compute confidence intervals for the parameters using bootstrap samples
 #' @param PLS_result results from PLS
+#' @param alpha significance level
 #' @param R number of repetitions
 #' @returns boostrap results
 #' @importFrom boot boot
 #' @importFrom stats sd
+#' @importFrom stats quantile
 #' @export
-standard_errors <- function(PLS_result,
-                            R = 1000){
+confidence_intervals <- function(PLS_result,
+                                 alpha = .05,
+                                 R = 1000){
 
   bootstrap_pls <- function(dat,
                             indices,
@@ -392,8 +396,12 @@ standard_errors <- function(PLS_result,
                         max_iterations = PLS_result$input$max_iterations,
                         convergence = PLS_result$input$convergence)
   colnames(results$t) <- names(results$t0)
-  se <- apply(results$t, 2, sd)
-  return(se)
+  lower_ci <- apply(results$t, 2, quantile, alpha)
+  upper_ci <- apply(results$t, 2, quantile, 1-alpha)
+  return(list(confidence_intervals = data.frame(Estimate = coef(PLS_result),
+                                                lower_ci = lower_ci,
+                                                upper_ci = upper_ci),
+              full_results = results))
 }
 
 #' get_r2

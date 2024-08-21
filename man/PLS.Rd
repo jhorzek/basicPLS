@@ -9,7 +9,7 @@ PLS(
   structure,
   data,
   sample_weights = NULL,
-  path_estimation = "centroid",
+  path_estimation = "regression",
   max_iterations = 1000,
   convergence = 1e-05
 )
@@ -48,7 +48,8 @@ PLS_result <- PLS(measurement = alist(eta1 ~ y11 + y12 + y13,
                                       eta3 ~ y31 + y32 + y33),
                   structure = alist(eta2 ~ eta1,
                                     eta3 ~ eta1 + eta2),
-                  data = data_set)
+                  data = data_set,
+                  path_estimation = "centroid")
 
 # same thing with cSEM
 model <- "
