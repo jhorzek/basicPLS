@@ -7,11 +7,12 @@ Maintainer: Jannik H. Orzek <jannik.orzek@mailbox.org>
 Description: basicPLS provides a simple, documented PLS algorithm to better understand
     how PLS-SEM are estimated.
 Imports:
-  boot,
-  methods
+    boot,
+    corpcor,
+    methods
 Suggests: 
   cSEM
-RoxygenNote: 7.3.1
+RoxygenNote: 7.3.2
 License: GPL (>= 3)
 Encoding: UTF-8
 LazyData: true

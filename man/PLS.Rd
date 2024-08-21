@@ -8,7 +8,8 @@ PLS(
   measurement,
   structure,
   data,
-  path_estimation = "centroid",
+  sample_weights = NULL,
+  path_estimation = "regression",
   max_iterations = 1000,
   convergence = 1e-05
 )
@@ -19,6 +20,8 @@ PLS(
 \item{structure}{alist with formulas defining structural model}
 
 \item{data}{data set (data.frame)}
+
+\item{sample_weights}{data weights for weighted PLS-SEM}
 
 \item{path_estimation}{how should the inner paths be estimated? Available
 are "centroid" and "regression" based estimation.}
@@ -45,7 +48,8 @@ PLS_result <- PLS(measurement = alist(eta1 ~ y11 + y12 + y13,
                                       eta3 ~ y31 + y32 + y33),
                   structure = alist(eta2 ~ eta1,
                                     eta3 ~ eta1 + eta2),
-                  data = data_set)
+                  data = data_set,
+                  path_estimation = "centroid")
 
 # same thing with cSEM
 model <- "
