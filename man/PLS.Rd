@@ -8,6 +8,7 @@ PLS(
   measurement,
   structure,
   data,
+  sample_weights = NULL,
   path_estimation = "centroid",
   max_iterations = 1000,
   convergence = 1e-05
@@ -19,6 +20,8 @@ PLS(
 \item{structure}{alist with formulas defining structural model}
 
 \item{data}{data set (data.frame)}
+
+\item{sample_weights}{data weights for weighted PLS-SEM}
 
 \item{path_estimation}{how should the inner paths be estimated? Available
 are "centroid" and "regression" based estimation.}

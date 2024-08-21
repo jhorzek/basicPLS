@@ -18,7 +18,8 @@
 #' @importFrom stats cor
 #' @importFrom stats coef
 #' @importFrom stats lm
-#' @importFrom corpcor
+#' @importFrom stats as.formula
+#' @importFrom corpcor wt.scale
 #' @export
 #' @examples
 #' library(cSEM)
@@ -178,13 +179,15 @@ PLS <- function(measurement,
                                function(x) data_std[, names(x), drop = FALSE] %*% matrix(x, ncol = 1))
     # Next, we scale the components. Here, we use the weights to compute the
     # means and covariances.
-    component_values <- corpcor::wt.scale(component_values, w = sample_weights)
+    component_values <- corpcor::wt.scale(component_values,
+                                          w = sample_weights)
 
     #### Inner Model ####
     # We compute the correlations of the components.
     component_correlation <- stats::cov.wt(component_values,
                                            wt = sample_weights,
-                                           cor = TRUE)$cor
+                                           cor = TRUE,
+                                           method = "ML")$cor
     # Now, we take the component structure into account by creating a structure
     # matrix.
     if(path_estimation == "centroid"){
@@ -246,7 +249,8 @@ PLS <- function(measurement,
   component_values <- sapply(weights,
                              function(x) data_std[, names(x), drop = FALSE] %*% matrix(x, ncol = 1))
   # Scale components:
-  component_values <- scale(component_values)
+  component_values <- corpcor::wt.scale(component_values,
+                                        w = sample_weights)
 
   # Compute the final weights
   weights_upd <- sapply(measurement,
@@ -339,7 +343,7 @@ coef.PLS_SEM <- function(object, ...){
 #' to re-assign the environment of the formula and make sure that R finds the weights.
 #' @param formula regression formula
 #' @param data data set
-#' @param weights sample weights vector
+#' @param wt sample weights vector
 #' @returns regression coefficients
 #' @keywords internal
 regression_coef <- function(formula, data, wt = NULL){
