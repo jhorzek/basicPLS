@@ -6,6 +6,11 @@
 #' @param measurement alist with formulas defining the measurements
 #' @param structure alist with formulas defining structural model
 #' @param data data set (data.frame)
+#' @param as_reflective vector with names of composites that should be treated
+#' as reflective. Internally, basicPLS will use mode A estimation for these
+#' composites, and mode B estimation for all other composites.
+#' @param imputation_function a function that imputes missing data. The function
+#' will be given the raw data set and the weights.
 #' @param sample_weights data weights for weighted PLS-SEM
 #' @param path_estimation how should the inner paths be estimated? Available
 #' are "centroid" and "regression" based estimation.
@@ -90,6 +95,8 @@
 PLS <- function(measurement,
                 structure,
                 data,
+                as_reflective = NULL,
+                imputation_function = function(data, weights) return(data),
                 sample_weights = NULL,
                 path_estimation = "regression",
                 max_iterations = 1000,
@@ -106,6 +113,7 @@ PLS <- function(measurement,
     measurement = measurement,
     structure = structure,
     data = data,
+    imputation_function = imputation_function,
     path_estimation = path_estimation,
     sample_weights = sample_weights,
     max_iterations = max_iterations,
@@ -117,19 +125,27 @@ PLS <- function(measurement,
   # end, we leverage that each component must be defined as the first element in
   # the measurement models:
   components <- sapply(measurement, function(x) all.vars(x)[1], simplify = TRUE)
+  names(measurement) <- components
 
   # Next, we extract all observed variables. Those are on the right hand side of the
   # measurement models. The result will be a list and we will assign the
   # names of the constructs to the list elements.
   observables <- sapply(measurement, function(x) all.vars(x)[-1], simplify = FALSE)
   names(observables) <- components
+
   # Check if all observables are in the data set:
   if(any(!unlist(observables) %in% colnames(data)))
     stop("The following observables were not found in the data set: ",
          paste0(unlist(observables)[!unlist(observables) %in% colnames(data)], collapse = ", "), ".")
+  # check if requested latents are in the components
+  for(as_refl in as_reflective){
+    if(!as_refl %in% components)
+      stop(paste0("Could not find ", as_refl, " in measurements."))
+  }
 
-
-  data_std <- corpcor::wt.scale(data[, unique(unlist(observables))],
+  # impute and scale:
+  data_std <- corpcor::wt.scale(imputation_function(data[, unique(unlist(observables))],
+                                                    sample_weights),
                                 w = sample_weights)
 
   # Now, we construct a matrix indicating which of the components has an effect on
@@ -223,12 +239,24 @@ PLS <- function(measurement,
 
     # Finally, we update the weights by predicting the component values with the
     # observed data using linear regressions.
-    weights_upd <- sapply(measurement,
-                          function(x) regression_coef(formula = x,
-                                                      data = as.data.frame(cbind(data_std, component_values)),
-                                                      wt = sample_weights)[-1],
-                          simplify = FALSE)
-    names(weights_upd) <- names(weights)
+    weights_upd <- list()
+    for(comp in names(measurement)){
+      if(comp %in% as_reflective){
+        # Mode A: We predict the items using the composites
+        current_items <- all.vars(measurement[[comp]])[-1]
+        weights_upd[[comp]] <- sapply(current_items,
+                                      function(x) coef(lm(as.formula(paste0(x, " ~ ", comp)),
+                                                          data = as.data.frame(cbind(data_std, component_values)),
+                                                          weights = sample_weights))[-1],
+                                      simplify = TRUE)
+        names(weights_upd[[comp]]) <- current_items
+      }else{
+        # Mode B: We predict the composite using the items
+        weights_upd[[comp]] <- regression_coef(formula = measurement[[comp]],
+                                               data = as.data.frame(cbind(data_std, component_values)),
+                                               wt = sample_weights)[-1]
+      }
+    }
 
     #### Check Convergence ####
     # The algorithm converged, if the maximal change in the weights falls below
@@ -253,14 +281,16 @@ PLS <- function(measurement,
   component_values <- corpcor::wt.scale(component_values,
                                         w = sample_weights)
 
-  # Compute the final weights
-  weights_upd <- sapply(measurement,
-                        function(x) regression_coef(x,
-                                                    data = as.data.frame(cbind(data_std, component_values)),
-                                                    wt = sample_weights)[-1],
-                        simplify = FALSE)
-  names(weights_upd) <- names(weights)
-  weights <- weights_upd
+  # Compute the final weights. In this round, we do not distinguish between
+  # mode A and mode B. This ensures that we can always compute the scores as
+  # data * weights
+  weights <- list()
+  for(comp in names(measurement)){
+    # Mode B: We predict the composite using the items
+    weights[[comp]] <- regression_coef(formula = measurement[[comp]],
+                                       data = as.data.frame(cbind(data_std, component_values)),
+                                       wt = sample_weights)[-1]
+  }
 
   # unstandardized weights
   weights_unstandardized <-  sapply(measurement,
@@ -286,6 +316,7 @@ PLS <- function(measurement,
     measurements <-  all.vars(m)[-1]
     if(length(measurements) == 1){
       loadings[[component]] <- 1
+      names(loadings[[component]]) <- measurements
       next
     }
     loadings[[component]] <- sapply(measurements,
@@ -399,6 +430,7 @@ confidence_intervals <- function(PLS_result,
                             indices,
                             measurement,
                             structure,
+                            imputation_function,
                             sample_weights,
                             path_estimation,
                             max_iterations,
@@ -407,6 +439,7 @@ confidence_intervals <- function(PLS_result,
     fit_results <- suppressMessages(basicPLS::PLS(measurement = measurement,
                                                   structure = structure,
                                                   data = dat[indices,, drop = FALSE],
+                                                  imputation_function = imputation_function,
                                                   sample_weights = sample_weights[indices],
                                                   path_estimation = path_estimation,
                                                   max_iterations = max_iterations,
@@ -419,6 +452,7 @@ confidence_intervals <- function(PLS_result,
                         R = R,
                         measurement = PLS_result$input$measurement,
                         structure = PLS_result$input$structure,
+                        imputation_function = PLS_result$input$imputation_function,
                         sample_weights = PLS_result$input$sample_weights,
                         path_estimation = PLS_result$input$path_estimation,
                         max_iterations = PLS_result$input$max_iterations,
@@ -458,4 +492,34 @@ get_r2 <- function(PLS_result){
   return(r2)
 }
 
+
+#' mean_impute
+#'
+#' Basic mean imputation for missing data
+#' @param data data set with missings
+#' @param weights vector with weights for each person in the data set
+#' @returns data set with imputed missings
+#' @export
+#' @examples
+#' library(cSEM)
+#' library(basicPLS)
+#' data(satisfaction)
+#' satisfaction_with_missings <- satisfaction
+#' missings <- matrix(sample(c(TRUE, FALSE),
+#'                    nrow(satisfaction)*ncol(satisfaction),
+#'                    prob = c(.1, .9),
+#'                    replace = TRUE),
+#'                    nrow = nrow(satisfaction),
+#'                    ncol = ncol(satisfaction))
+#' satisfaction_with_missings[missings] <- NA
+#' mean_impute(data = satisfaction_with_missings,
+#'             weights = rep(1, nrow(satisfaction_with_missings)))
+mean_impute <- function(data, weights){
+  for(i in 1:ncol(data)){
+    data[[i]] <- ifelse(is.na(data[[i]]),
+                        sum(weights * data[[i]], na.rm = TRUE) / sum(weights[!is.na(data[[i]])]),
+                        data[[i]])
+  }
+  return(data)
+}
 

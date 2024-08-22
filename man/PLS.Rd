@@ -8,6 +8,8 @@ PLS(
   measurement,
   structure,
   data,
+  as_reflective = NULL,
+  imputation_function = function(data, weights) return(data),
   sample_weights = NULL,
   path_estimation = "regression",
   max_iterations = 1000,
@@ -20,6 +22,13 @@ PLS(
 \item{structure}{alist with formulas defining structural model}
 
 \item{data}{data set (data.frame)}
+
+\item{as_reflective}{vector with names of composites that should be treated
+as reflective. Internally, basicPLS will use mode A estimation for these
+composites, and mode B estimation for all other composites.}
+
+\item{imputation_function}{a function that imputes missing data. The function
+will be given the raw data set and the weights.}
 
 \item{sample_weights}{data weights for weighted PLS-SEM}
 
