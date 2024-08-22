@@ -278,9 +278,28 @@ PLS <- function(measurement,
                     simplify = FALSE)
   names(effects) <- sapply(structure, function(x) all.vars(x)[1])
 
+  # Finally, we can also compute the pseudo-loadings of PLS-SEM.
+  loadings <- list()
+  for(m in measurement){
+    # we have to reverse the direction of the measurements
+    component <- all.vars(m)[1]
+    measurements <-  all.vars(m)[-1]
+    if(length(measurements) == 1){
+      loadings[[component]] <- 1
+      next
+    }
+    loadings[[component]] <- sapply(measurements,
+                                    function(x) coef(lm(as.formula(paste0(x, " ~ ", component)),
+                                                        data = as.data.frame(cbind(data_std, component_values)),
+                                                        weights = sample_weights))[2],
+                                    simplify = TRUE)
+    names(loadings[[component]]) <- measurements
+  }
+
   # Return results:
   result <- list(components = component_values,
                  weights = weights,
+                 loadings = loadings,
                  weights_unstandardized = weights_unstandardized,
                  effects = effects,
                  input = input)
@@ -317,16 +336,22 @@ print.PLS_SEM <- function(x, ...){
 #'
 #' Coefficient of PLS SEM
 #' @param object PLS_SEM object
+#' @param include_loadings if set to TRUE, loadings will also be shown. Note that
+#' loadings are not proper parameters of the model as they are not optimized for.
 #' @param ... not used
 #' @returns vector with parameters
 #' @importFrom stats coef
 #' @export
-coef.PLS_SEM <- function(object, ...){
+coef.PLS_SEM <- function(object, include_loadings = FALSE, ...){
   par_values <- c()
   par_names  <- c()
   for(comp in names(object$weights)){
     par_values <- c(par_values, object$weights[[comp]])
     par_names <- c(par_names, paste0(comp, " <~ ", names(object$weights[[comp]])))
+    if(include_loadings){
+      par_values <- c(par_values, object$loadings[[comp]])
+      par_names <- c(par_names, paste0(comp, " =~ ", names(object$loadings[[comp]])))
+    }
   }
   for(comp in names(object$effects)){
     par_values <- c(par_values, object$effects[[comp]])
@@ -357,6 +382,7 @@ regression_coef <- function(formula, data, wt = NULL){
 #'
 #' Compute confidence intervals for the parameters using bootstrap samples
 #' @param PLS_result results from PLS
+#' @param include_loadings should loadings also be returned?
 #' @param alpha significance level
 #' @param R number of repetitions
 #' @returns boostrap results
@@ -365,6 +391,7 @@ regression_coef <- function(formula, data, wt = NULL){
 #' @importFrom stats quantile
 #' @export
 confidence_intervals <- function(PLS_result,
+                                 include_loadings = FALSE,
                                  alpha = .05,
                                  R = 1000){
 
@@ -375,7 +402,8 @@ confidence_intervals <- function(PLS_result,
                             sample_weights,
                             path_estimation,
                             max_iterations,
-                            convergence){
+                            convergence,
+                            include_loadings){
     fit_results <- suppressMessages(basicPLS::PLS(measurement = measurement,
                                                   structure = structure,
                                                   data = dat[indices,, drop = FALSE],
@@ -383,9 +411,9 @@ confidence_intervals <- function(PLS_result,
                                                   path_estimation = path_estimation,
                                                   max_iterations = max_iterations,
                                                   convergence = convergence))
-    return(coef(fit_results))
+    return(coef(fit_results, include_loadings = include_loadings))
   }
-  # bootstrapping with 1000 replications
+  # bootstrapping
   results <- boot::boot(PLS_result$input$data,
                         statistic = bootstrap_pls,
                         R = R,
@@ -394,13 +422,21 @@ confidence_intervals <- function(PLS_result,
                         sample_weights = PLS_result$input$sample_weights,
                         path_estimation = PLS_result$input$path_estimation,
                         max_iterations = PLS_result$input$max_iterations,
-                        convergence = PLS_result$input$convergence)
+                        convergence = PLS_result$input$convergence,
+                        include_loadings = include_loadings)
   colnames(results$t) <- names(results$t0)
   lower_ci <- apply(results$t, 2, quantile, alpha)
   upper_ci <- apply(results$t, 2, quantile, 1-alpha)
-  return(list(confidence_intervals = data.frame(Estimate = coef(PLS_result),
-                                                lower_ci = lower_ci,
-                                                upper_ci = upper_ci),
+
+  return(list(confidence_intervals = data.frame(Parameter = names(results$t0),
+                                                Estimate = unname(results$t0),
+                                                type = ifelse(grepl("=~", names(results$t0)),
+                                                              "loading",
+                                                              ifelse(grepl("<~", names(results$t0)),
+                                                                     "weight",
+                                                                     "regression")),
+                                                lower_ci = unname(lower_ci),
+                                                upper_ci = unname(upper_ci)),
               full_results = results))
 }
 
