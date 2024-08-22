@@ -4,10 +4,13 @@
 \alias{coef.PLS_SEM}
 \title{coef.PLS_SEM}
 \usage{
-\method{coef}{PLS_SEM}(object, ...)
+\method{coef}{PLS_SEM}(object, include_loadings = FALSE, ...)
 }
 \arguments{
 \item{object}{PLS_SEM object}
+
+\item{include_loadings}{if set to TRUE, loadings will also be shown. Note that
+loadings are not proper parameters of the model as they are not optimized for.}
 
 \item{...}{not used}
 }
