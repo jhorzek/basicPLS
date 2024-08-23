@@ -9,7 +9,8 @@ Description: basicPLS provides a simple, documented PLS algorithm to better unde
 Imports:
     boot,
     corpcor,
-    methods
+    methods,
+    stringr
 Suggests: 
     cSEM,
     testthat (>= 3.0.0)
@@ -18,3 +19,5 @@ License: GPL (>= 3)
 Encoding: UTF-8
 LazyData: true
 Config/testthat/edition: 3
+Depends: 
+    R (>= 2.10)

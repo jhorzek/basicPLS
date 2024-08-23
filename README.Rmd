@@ -15,90 +15,91 @@ knitr::opts_chunk$set(
 
 # basicPLS
 
-> basicPLS should not be used for any relevant data analysis; We recommend cSEM instead.
+The objective of basicPLS is to provide a reduced implementation of PLS-SEM. The 
+package is currently intentionally incomplete, as we are only implementing the
+features we need. The implementation follows that found in [plspm](https://github.com/gastonstat/plspm). 
 
-The objective of basicPLS is to provide a simple implementation of PLS-SEM to
-better understand the algorithm underlying the modeling approach. The implementation
-follows that found in [plspm](https://github.com/gastonstat/plspm). 
-
-The main function is `basicPLS::PLS` and fits PLS-SEM with formative measurement
-models.
+The main function is `basicPLS::PLS` and fits PLS-SEM with formative 
+and pseudo-reflective measurement models (pseudo-reflective because PLS-SEM always
+fits a formative model).
 
 ## Example:
 
 ```{r, message=FALSE}
-library(cSEM)
 library(basicPLS)
-data_set <- 10*cSEM::threecommonfactors + 2
-PLS_result <- PLS(measurement = alist(eta1 ~ y11 + y12 + y13,
-                                      eta2 ~ y21 + y22 + y23,
-                                      eta3 ~ y31 + y32 + y33),
-                  structure = alist(eta2 ~ eta1,
-                                    eta3 ~ eta1 + eta2),
-                  data = data_set)
+data_set <- basicPLS::satisfaction
+
+# Both, measurement and structural model are specified using R's formulas:
+PLS_result <- PLS(
+  measurement = alist(EXPE ~ expe1 + expe2 + expe3 + expe4 + expe5,
+                      IMAG ~ imag1 + imag2 + imag3 + imag4 + imag5,
+                      LOY ~ loy1 + loy2 + loy3 + loy4,
+                      QUAL ~ qual1 + qual2 + qual3 + qual4 + qual5,
+                      SAT ~ sat1 + sat2 + sat3 + sat4,
+                      VAL ~ val1 + val2 + val3 + val4),
+  structure = alist(QUAL ~ EXPE,
+                    EXPE ~ IMAG,
+                    SAT ~ IMAG + EXPE + QUAL + VAL,
+                    LOY ~ IMAG + SAT,
+                    VAL ~ EXPE + QUAL),
+  data = data_set)
 PLS_result
 
-# same thing with cSEM
-model <- "
-# Structural model
-eta2 ~ eta1
-eta3 ~ eta1 + eta2
-
-# measurement model
-eta1 <~ y11 + y12 + y13
-eta2 <~ y21 + y22 + y23
-eta3 <~ y31 + y32 + y33
-"
-fit_csem <- csem(data_set,
-                 model,
-                 .PLS_modes = "modeB",
-                 .PLS_weight_scheme_inner = "centroid")
-
-# Let's compare the results:
-fit_csem$Estimates$Weight_estimates
-PLS_result$weights
-
-fit_csem$Estimates$Path_estimates
-PLS_result$effects
-
-head(fit_csem$Estimates$Construct_scores -
-       PLS_result$components)
-
-assess(fit_csem, "r2")
-get_r2(PLS_result)
+# Use confidence_intervals to bootstrap confidence intervals for all parameters:
+ci <- confidence_intervals(PLS_result,
+                           # increase for actual use:
+                           R = 50)
+ci$confidence_intervals$effects
 ```
 
-Using regression weights instead of the default centroid weights:
+To switch to mode_A ("reflective") for a composite, use `as_reflective`:
 
 ```{r}
-PLS_result <- PLS(measurement = alist(eta1 ~ y11 + y12 + y13,
-                                      eta2 ~ y21 + y22 + y23,
-                                      eta3 ~ y31 + y32 + y33),
-                  structure = alist(eta2 ~ eta1,
-                                    eta3 ~ eta1 + eta2),
-                  data = data_set, 
-                  path_estimation = "regression")
+PLS_result <- PLS(
+  measurement = alist(EXPE ~ expe1 + expe2 + expe3 + expe4 + expe5,
+                      IMAG ~ imag1 + imag2 + imag3 + imag4 + imag5,
+                      LOY ~ loy1 + loy2 + loy3 + loy4,
+                      QUAL ~ qual1 + qual2 + qual3 + qual4 + qual5,
+                      SAT ~ sat1 + sat2 + sat3 + sat4,
+                      VAL ~ val1 + val2 + val3 + val4),
+  structure = alist(QUAL ~ EXPE,
+                    EXPE ~ IMAG,
+                    SAT ~ IMAG + EXPE + QUAL + VAL,
+                    LOY ~ IMAG + SAT,
+                    VAL ~ EXPE + QUAL),
+  as_reflective = c("EXPE", "IMAG", "LOY", "QUAL", "SAT", "VAL"),
+  data = data_set)
 PLS_result
-
-fit_csem <- csem(data_set,
-                 model,
-                 .PLS_modes = "modeB",
-                 .PLS_weight_scheme_inner = "path")
-
-# Let's compare the results:
-fit_csem$Estimates$Weight_estimates
-PLS_result$weights
-
-fit_csem$Estimates$Path_estimates
-PLS_result$effects
-
-head(fit_csem$Estimates$Construct_scores -
-       PLS_result$components)
-
-assess(fit_csem, "r2")
-get_r2(PLS_result)
-
 ```
 
 
+## Weighted PLS
 
+basicPLS can compute weighted PLS estimates:
+
+```{r}
+# data set with missings:
+data_set <- basicPLS::satisfaction_NA
+
+PLS_result <- PLS(
+  measurement = alist(EXPE ~ expe1 + expe2 + expe3 + expe4 + expe5,
+                      IMAG ~ imag1 + imag2 + imag3 + imag4 + imag5,
+                      LOY ~ loy1 + loy2 + loy3 + loy4,
+                      QUAL ~ qual1 + qual2 + qual3 + qual4 + qual5,
+                      SAT ~ sat1 + sat2 + sat3 + sat4,
+                      VAL ~ val1 + val2 + val3 + val4),
+  structure = alist(QUAL ~ EXPE,
+                    EXPE ~ IMAG,
+                    SAT ~ IMAG + EXPE + QUAL + VAL,
+                    LOY ~ IMAG + SAT,
+                    VAL ~ EXPE + QUAL),
+  data = data_set,
+  # specify missing value treatment:
+  imputation_function = mean_impute,
+  # specify sample weights:
+  sample_weights = data_set$sample_weights
+  )
+PLS_result
+
+get_r2(PLS_result)
+```

@@ -9,7 +9,7 @@ PLS(
   structure,
   data,
   as_reflective = NULL,
-  imputation_function = function(data, weights) return(data),
+  imputation_function = fail_on_NA,
   sample_weights = NULL,
   path_estimation = "regression",
   max_iterations = 1000,
@@ -49,69 +49,30 @@ Basic function estimating a PLS-SEM with formative measurement model.
 The algorithm is adapted from https://github.com/gastonstat/plspm.
 }
 \examples{
-library(cSEM)
 library(basicPLS)
-data_set <- 10*cSEM::threecommonfactors + 2
-PLS_result <- PLS(measurement = alist(eta1 ~ y11 + y12 + y13,
-                                      eta2 ~ y21 + y22 + y23,
-                                      eta3 ~ y31 + y32 + y33),
-                  structure = alist(eta2 ~ eta1,
-                                    eta3 ~ eta1 + eta2),
-                  data = data_set,
-                  path_estimation = "centroid")
+data_set <- basicPLS::satisfaction
 
-# same thing with cSEM
-model <- "
-# Structural model
-eta2 ~ eta1
-eta3 ~ eta1 + eta2
+# Both, measurement and structural model are specified using R's formulas:
+PLS_result <- PLS(
+  measurement = alist(EXPE ~ expe1 + expe2 + expe3 + expe4 + expe5,
+                      IMAG ~ imag1 + imag2 + imag3 + imag4 + imag5,
+                      LOY ~ loy1 + loy2 + loy3 + loy4,
+                      QUAL ~ qual1 + qual2 + qual3 + qual4 + qual5,
+                      SAT ~ sat1 + sat2 + sat3 + sat4,
+                      VAL ~ val1 + val2 + val3 + val4),
+  structure = alist(QUAL ~ EXPE,
+                    EXPE ~ IMAG,
+                    SAT ~ IMAG + EXPE + QUAL + VAL,
+                    LOY ~ IMAG + SAT,
+                    VAL ~ EXPE + QUAL),
+  data = data_set)
+PLS_result
 
-# measurement model
-eta1 <~ y11 + y12 + y13
-eta2 <~ y21 + y22 + y23
-eta3 <~ y31 + y32 + y33
-"
-fit_csem <- csem(data_set,
-                 model,
-                 .PLS_modes = "modeB",
-                 .PLS_weight_scheme_inner = "centroid")
-# Let's compare the results:
-fit_csem$Estimates$Weight_estimates
-PLS_result$weights
-
-fit_csem$Estimates$Path_estimates
-PLS_result$effects
-
-head(fit_csem$Estimates$Construct_scores -
-       PLS_result$components)
-
-assess(fit_csem, "r2")
+# R squared:
 get_r2(PLS_result)
 
-# We can fit the same model with the regression scheme:
-PLS_result <- PLS(measurement = alist(eta1 ~ y11 + y12 + y13,
-                                      eta2 ~ y21 + y22 + y23,
-                                      eta3 ~ y31 + y32 + y33),
-                  structure = alist(eta2 ~ eta1,
-                                    eta3 ~ eta1 + eta2),
-                  data = data_set,
-                  path_estimation = "regression")
-
-# same thing with cSEM
-fit_csem <- csem(data_set,
-                 model,
-                 .PLS_modes = "modeB",
-                 .PLS_weight_scheme_inner = "path")
-# Let's compare the results:
-fit_csem$Estimates$Weight_estimates
-PLS_result$weights
-
-fit_csem$Estimates$Path_estimates
-PLS_result$effects
-
-head(fit_csem$Estimates$Construct_scores -
-       PLS_result$components)
-
-assess(fit_csem, "r2")
-get_r2(PLS_result)
+# Use confidence_intervals to bootstrap confidence intervals for all parameters:
+ci <- confidence_intervals(PLS_result,
+                           # Increase for actual use:
+                           R = 10)
 }

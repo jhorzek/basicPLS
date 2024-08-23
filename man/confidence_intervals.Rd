@@ -4,24 +4,19 @@
 \alias{confidence_intervals}
 \title{confidence_intervals}
 \usage{
-confidence_intervals(
-  PLS_result,
-  include_loadings = FALSE,
-  alpha = 0.05,
-  R = 1000
-)
+confidence_intervals(PLS_result, alpha = 0.05, R = 1000, ...)
 }
 \arguments{
 \item{PLS_result}{results from PLS}
 
-\item{include_loadings}{should loadings also be returned?}
-
 \item{alpha}{significance level}
 
 \item{R}{number of repetitions}
+
+\item{...}{additional arguments passed to boot. See ?boot::boot}
 }
 \value{
-boostrap results
+bootstrap results
 }
 \description{
 Compute confidence intervals for the parameters using bootstrap samples

@@ -3,205 +3,178 @@
 
 # basicPLS
 
-> basicPLS should not be used for any relevant data analysis; We
-> recommend cSEM instead.
+The objective of basicPLS is to provide a reduced implementation of
+PLS-SEM. The package is currently intentionally incomplete, as we are
+only implementing the features we need. The implementation follows that
+found in [plspm](https://github.com/gastonstat/plspm).
 
-The objective of basicPLS is to provide a simple implementation of
-PLS-SEM to better understand the algorithm underlying the modeling
-approach. The implementation follows that found in
-[plspm](https://github.com/gastonstat/plspm).
-
-The main function is `basicPLS::PLS` and fits PLS-SEM with formative
-measurement models.
+The main function is `basicPLS::PLS` and fits PLS-SEM with formative and
+pseudo-reflective measurement models (pseudo-reflective because PLS-SEM
+always fits a formative model).
 
 ## Example:
 
 ``` r
-library(cSEM)
 library(basicPLS)
-data_set <- 10*cSEM::threecommonfactors + 2
-PLS_result <- PLS(measurement = alist(eta1 ~ y11 + y12 + y13,
-                                      eta2 ~ y21 + y22 + y23,
-                                      eta3 ~ y31 + y32 + y33),
-                  structure = alist(eta2 ~ eta1,
-                                    eta3 ~ eta1 + eta2),
-                  data = data_set)
+data_set <- basicPLS::satisfaction
+
+# Both, measurement and structural model are specified using R's formulas:
+PLS_result <- PLS(
+  measurement = alist(EXPE ~ expe1 + expe2 + expe3 + expe4 + expe5,
+                      IMAG ~ imag1 + imag2 + imag3 + imag4 + imag5,
+                      LOY ~ loy1 + loy2 + loy3 + loy4,
+                      QUAL ~ qual1 + qual2 + qual3 + qual4 + qual5,
+                      SAT ~ sat1 + sat2 + sat3 + sat4,
+                      VAL ~ val1 + val2 + val3 + val4),
+  structure = alist(QUAL ~ EXPE,
+                    EXPE ~ IMAG,
+                    SAT ~ IMAG + EXPE + QUAL + VAL,
+                    LOY ~ IMAG + SAT,
+                    VAL ~ EXPE + QUAL),
+  data = data_set)
 PLS_result
 #> 
 #> #### PLS SEM Results ####
 #> Component Weights:
-#> eta1 = 0.344*y11 + 0.343*y12 + 0.540*y13 
-#> eta2 = 0.171*y21 + 0.444*y22 + 0.574*y23 
-#> eta3 = 0.554*y31 + 0.226*y32 + 0.393*y33 
+#> EXPE = 0.095*expe1 + 0.433*expe2 + 0.164*expe3 + 0.315*expe4 + 0.238*expe5 
+#> IMAG = -0.032*imag1 +  0.221*imag2 +  0.493*imag3 +  0.038*imag4 +  0.472*imag5 
+#> LOY =  0.560*loy1 +  0.072*loy2 +  0.515*loy3 + -0.077*loy4 
+#> QUAL = 0.216*qual1 + 0.381*qual2 + 0.163*qual3 + 0.211*qual4 + 0.242*qual5 
+#> SAT = 0.502*sat1 + 0.353*sat2 + 0.026*sat3 + 0.221*sat4 
+#> VAL = 0.494*val1 + 0.190*val2 + 0.116*val3 + 0.384*val4 
 #> 
 #> Effects:
-#> eta2 ~ 0.510*eta1 
-#> eta3 ~ 0.353*eta1 + 0.309*eta2
-
-# same thing with cSEM
-model <- "
-# Structural model
-eta2 ~ eta1
-eta3 ~ eta1 + eta2
-
-# measurement model
-eta1 <~ y11 + y12 + y13
-eta2 <~ y21 + y22 + y23
-eta3 <~ y31 + y32 + y33
-"
-fit_csem <- csem(data_set,
-                 model,
-                 .PLS_modes = "modeB",
-                 .PLS_weight_scheme_inner = "centroid")
-
-# Let's compare the results:
-fit_csem$Estimates$Weight_estimates
-#>            y11       y12       y13       y21       y22       y23       y31
-#> eta1 0.3438924 0.3427876 0.5401396 0.0000000 0.0000000 0.0000000 0.0000000
-#> eta2 0.0000000 0.0000000 0.0000000 0.1705062 0.4438504 0.5743282 0.0000000
-#> eta3 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.5543436
-#>            y32      y33
-#> eta1 0.0000000 0.000000
-#> eta2 0.0000000 0.000000
-#> eta3 0.2261267 0.393099
-PLS_result$weights
-#> $eta1
-#>       y11       y12       y13 
-#> 0.3438924 0.3427876 0.5401396 
-#> 
-#> $eta2
-#>       y21       y22       y23 
-#> 0.1705062 0.4438504 0.5743282 
-#> 
-#> $eta3
-#>       y31       y32       y33 
-#> 0.5543436 0.2261267 0.3930990
-
-fit_csem$Estimates$Path_estimates
-#>           eta1      eta2 eta3
-#> eta1 0.0000000 0.0000000    0
-#> eta2 0.5096528 0.0000000    0
-#> eta3 0.3534210 0.3092769    0
-PLS_result$effects
-#> $eta2
-#>      eta1 
-#> 0.5096528 
-#> 
-#> $eta3
-#>      eta1      eta2 
-#> 0.3534210 0.3092769
-
-head(fit_csem$Estimates$Construct_scores -
-       PLS_result$components)
-#>               eta1          eta2          eta3
-#> [1,] -6.938894e-18 -1.942890e-16 -2.012279e-16
-#> [2,]  0.000000e+00  2.220446e-16  2.220446e-16
-#> [3,]  0.000000e+00  0.000000e+00  3.885781e-16
-#> [4,]  0.000000e+00  1.110223e-16 -2.220446e-16
-#> [5,]  0.000000e+00 -1.110223e-15  0.000000e+00
-#> [6,]  1.110223e-16 -1.554312e-15  4.440892e-16
-
-assess(fit_csem, "r2")
-#> ________________________________________________________________________________
-#> 
-#>  Construct        R2      
-#>  eta2           0.2597    
-#>  eta3           0.3320    
-#> ________________________________________________________________________________
-get_r2(PLS_result)
-#> $eta2
-#> [1] 0.2597459
-#> 
-#> $eta3
-#> [1] 0.3319737
+#> QUAL ~ 0.851*EXPE 
+#> EXPE ~ 0.609*IMAG 
+#> SAT ~ 0.205*IMAG + 0.001*EXPE + 0.086*QUAL + 0.626*VAL 
+#> LOY ~ 0.227*IMAG + 0.560*SAT 
+#> VAL ~ 0.152*EXPE + 0.648*QUAL
 ```
 
-Using regression weights instead of the default centroid weights:
+``` r
+
+# Use confidence_intervals to bootstrap confidence intervals for all parameters:
+ci <- confidence_intervals(PLS_result,
+                           # increase for actual use:
+                           R = 50)
+ci$confidence_intervals$effects
+#>       Parameter     Estimate     lower_ci   upper_ci
+#> 1  QUAL <- EXPE 0.8511298309  0.820574269 0.87995689
+#> 2  EXPE <- IMAG 0.6085981452  0.515259838 0.68718012
+#> 3   SAT <- IMAG 0.2046077647  0.133005957 0.27571949
+#> 4   SAT <- EXPE 0.0005350609 -0.107277287 0.09379206
+#> 5   SAT <- QUAL 0.0856953262 -0.058195172 0.24005753
+#> 6    SAT <- VAL 0.6256122447  0.504416478 0.74307545
+#> 7   LOY <- IMAG 0.2274903742  0.138637173 0.36935456
+#> 8    LOY <- SAT 0.5601144411  0.423051704 0.64812599
+#> 9   VAL <- EXPE 0.1524291435  0.006330712 0.30592149
+#> 10  VAL <- QUAL 0.6478498478  0.509029473 0.76138657
+```
+
+To switch to mode_A (“reflective”) for a composite, use `as_reflective`:
 
 ``` r
-PLS_result <- PLS(measurement = alist(eta1 ~ y11 + y12 + y13,
-                                      eta2 ~ y21 + y22 + y23,
-                                      eta3 ~ y31 + y32 + y33),
-                  structure = alist(eta2 ~ eta1,
-                                    eta3 ~ eta1 + eta2),
-                  data = data_set, 
-                  path_estimation = "regression")
+PLS_result <- PLS(
+  measurement = alist(EXPE ~ expe1 + expe2 + expe3 + expe4 + expe5,
+                      IMAG ~ imag1 + imag2 + imag3 + imag4 + imag5,
+                      LOY ~ loy1 + loy2 + loy3 + loy4,
+                      QUAL ~ qual1 + qual2 + qual3 + qual4 + qual5,
+                      SAT ~ sat1 + sat2 + sat3 + sat4,
+                      VAL ~ val1 + val2 + val3 + val4),
+  structure = alist(QUAL ~ EXPE,
+                    EXPE ~ IMAG,
+                    SAT ~ IMAG + EXPE + QUAL + VAL,
+                    LOY ~ IMAG + SAT,
+                    VAL ~ EXPE + QUAL),
+  as_reflective = c("EXPE", "IMAG", "LOY", "QUAL", "SAT", "VAL"),
+  data = data_set)
 #> The algorithm took 5 iterations to converge.
+```
+
+``` r
 PLS_result
 #> 
 #> #### PLS SEM Results ####
 #> Component Weights:
-#> eta1 = 0.344*y11 + 0.343*y12 + 0.540*y13 
-#> eta2 = 0.172*y21 + 0.443*y22 + 0.574*y23 
-#> eta3 = 0.555*y31 + 0.227*y32 + 0.392*y33 
+#> EXPE = 0.237*expe1 + 0.282*expe2 + 0.224*expe3 + 0.259*expe4 + 0.265*expe5 
+#> IMAG = 0.206*imag1 + 0.297*imag2 + 0.308*imag3 + 0.181*imag4 + 0.285*imag5 
+#> LOY = 0.378*loy1 + 0.248*loy2 + 0.375*loy3 + 0.218*loy4 
+#> QUAL = 0.242*qual1 + 0.269*qual2 + 0.225*qual3 + 0.245*qual4 + 0.247*qual5 
+#> SAT = 0.322*sat1 + 0.308*sat2 + 0.246*sat3 + 0.268*sat4 
+#> VAL = 0.349*val1 + 0.294*val2 + 0.250*val3 + 0.325*val4 
 #> 
 #> Effects:
-#> eta2 ~ 0.510*eta1 
-#> eta3 ~ 0.353*eta1 + 0.309*eta2
+#> QUAL ~ 0.846*EXPE 
+#> EXPE ~ 0.560*IMAG 
+#> SAT ~ 0.186*IMAG + 0.008*EXPE + 0.138*QUAL + 0.580*VAL 
+#> LOY ~ 0.289*IMAG + 0.474*SAT 
+#> VAL ~ 0.118*EXPE + 0.660*QUAL
+```
 
-fit_csem <- csem(data_set,
-                 model,
-                 .PLS_modes = "modeB",
-                 .PLS_weight_scheme_inner = "path")
+## Weighted PLS
 
-# Let's compare the results:
-fit_csem$Estimates$Weight_estimates
-#>           y11       y12       y13       y21       y22       y23      y31
-#> eta1 0.343982 0.3427578 0.5400872 0.0000000 0.0000000 0.0000000 0.000000
-#> eta2 0.000000 0.0000000 0.0000000 0.1715504 0.4431438 0.5743126 0.000000
-#> eta3 0.000000 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.554802
-#>            y32       y33
-#> eta1 0.0000000 0.0000000
-#> eta2 0.0000000 0.0000000
-#> eta3 0.2270798 0.3917486
-PLS_result$weights
-#> $eta1
-#>       y11       y12       y13 
-#> 0.3439750 0.3427653 0.5400870 
+basicPLS can compute weighted PLS estimates:
+
+``` r
+# data set with missings:
+data_set <- basicPLS::satisfaction_NA
+
+PLS_result <- PLS(
+  measurement = alist(EXPE ~ expe1 + expe2 + expe3 + expe4 + expe5,
+                      IMAG ~ imag1 + imag2 + imag3 + imag4 + imag5,
+                      LOY ~ loy1 + loy2 + loy3 + loy4,
+                      QUAL ~ qual1 + qual2 + qual3 + qual4 + qual5,
+                      SAT ~ sat1 + sat2 + sat3 + sat4,
+                      VAL ~ val1 + val2 + val3 + val4),
+  structure = alist(QUAL ~ EXPE,
+                    EXPE ~ IMAG,
+                    SAT ~ IMAG + EXPE + QUAL + VAL,
+                    LOY ~ IMAG + SAT,
+                    VAL ~ EXPE + QUAL),
+  data = data_set,
+  # specify missing value treatment:
+  imputation_function = mean_impute,
+  # specify sample weights:
+  sample_weights = data_set$sample_weights
+  )
+#> The algorithm took 10 iterations to converge.
+```
+
+``` r
+PLS_result
 #> 
-#> $eta2
-#>       y21       y22       y23 
-#> 0.1715545 0.4431479 0.5743062 
+#> #### PLS SEM Results ####
+#> Component Weights:
+#> EXPE = 0.077*expe1 + 0.405*expe2 + 0.246*expe3 + 0.395*expe4 + 0.161*expe5 
+#> IMAG = -0.101*imag1 +  0.459*imag2 +  0.416*imag3 +  0.054*imag4 +  0.369*imag5 
+#> LOY = 0.394*loy1 + 0.051*loy2 + 0.669*loy3 + 0.026*loy4 
+#> QUAL = 0.202*qual1 + 0.208*qual2 + 0.283*qual3 + 0.309*qual4 + 0.245*qual5 
+#> SAT = 0.364*sat1 + 0.395*sat2 + 0.182*sat3 + 0.298*sat4 
+#> VAL = 0.425*val1 + 0.193*val2 + 0.172*val3 + 0.436*val4 
 #> 
-#> $eta3
-#>       y31       y32       y33 
-#> 0.5548014 0.2270858 0.3917439
+#> Effects:
+#> QUAL ~ 0.848*EXPE 
+#> EXPE ~ 0.598*IMAG 
+#> SAT ~  0.137*IMAG + -0.023*EXPE +  0.083*QUAL +  0.672*VAL 
+#> LOY ~ 0.285*IMAG + 0.550*SAT 
+#> VAL ~ 0.081*EXPE + 0.726*QUAL
+```
 
-fit_csem$Estimates$Path_estimates
-#>           eta1      eta2 eta3
-#> eta1 0.0000000 0.0000000    0
-#> eta2 0.5096772 0.0000000    0
-#> eta3 0.3534568 0.3092132    0
-PLS_result$effects
-#> $eta2
-#>      eta1 
-#> 0.5096772 
-#> 
-#> $eta3
-#>      eta1      eta2 
-#> 0.3534571 0.3092129
+``` r
 
-head(fit_csem$Estimates$Construct_scores -
-       PLS_result$components)
-#>               eta1          eta2          eta3
-#> [1,]  9.311063e-06  9.020625e-06 -4.743024e-06
-#> [2,]  6.818080e-06  3.571668e-07  2.819106e-06
-#> [3,] -2.689275e-07 -4.565194e-06  1.248594e-05
-#> [4,] -1.167041e-05  3.850598e-06 -8.770794e-06
-#> [5,] -2.524142e-06 -1.605349e-07 -7.439025e-07
-#> [6,] -1.210029e-05  8.019773e-06  8.083453e-06
-
-assess(fit_csem, "r2")
-#> ________________________________________________________________________________
-#> 
-#>  Construct        R2      
-#>  eta2           0.2598    
-#>  eta3           0.3320    
-#> ________________________________________________________________________________
 get_r2(PLS_result)
-#> $eta2
-#> [1] 0.2597708
+#> $QUAL
+#> [1] 0.7196226
 #> 
-#> $eta3
-#> [1] 0.3319534
+#> $EXPE
+#> [1] 0.3577394
+#> 
+#> $SAT
+#> [1] 0.6832522
+#> 
+#> $LOY
+#> [1] 0.5892923
+#> 
+#> $VAL
+#> [1] 0.6326801
 ```

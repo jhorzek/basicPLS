@@ -27,80 +27,46 @@
 #' @importFrom corpcor wt.scale
 #' @export
 #' @examples
-#' library(cSEM)
 #' library(basicPLS)
-#' data_set <- 10*cSEM::threecommonfactors + 2
-#' PLS_result <- PLS(measurement = alist(eta1 ~ y11 + y12 + y13,
-#'                                       eta2 ~ y21 + y22 + y23,
-#'                                       eta3 ~ y31 + y32 + y33),
-#'                   structure = alist(eta2 ~ eta1,
-#'                                     eta3 ~ eta1 + eta2),
-#'                   data = data_set,
-#'                   path_estimation = "centroid")
+#' data_set <- basicPLS::satisfaction
 #'
-#' # same thing with cSEM
-#' model <- "
-#' # Structural model
-#' eta2 ~ eta1
-#' eta3 ~ eta1 + eta2
+#' # Both, measurement and structural model are specified using R's formulas:
+#' PLS_result <- PLS(
+#'   measurement = alist(EXPE ~ expe1 + expe2 + expe3 + expe4 + expe5,
+#'                       IMAG ~ imag1 + imag2 + imag3 + imag4 + imag5,
+#'                       LOY ~ loy1 + loy2 + loy3 + loy4,
+#'                       QUAL ~ qual1 + qual2 + qual3 + qual4 + qual5,
+#'                       SAT ~ sat1 + sat2 + sat3 + sat4,
+#'                       VAL ~ val1 + val2 + val3 + val4),
+#'   structure = alist(QUAL ~ EXPE,
+#'                     EXPE ~ IMAG,
+#'                     SAT ~ IMAG + EXPE + QUAL + VAL,
+#'                     LOY ~ IMAG + SAT,
+#'                     VAL ~ EXPE + QUAL),
+#'   data = data_set)
+#' PLS_result
 #'
-#' # measurement model
-#' eta1 <~ y11 + y12 + y13
-#' eta2 <~ y21 + y22 + y23
-#' eta3 <~ y31 + y32 + y33
-#' "
-#' fit_csem <- csem(data_set,
-#'                  model,
-#'                  .PLS_modes = "modeB",
-#'                  .PLS_weight_scheme_inner = "centroid")
-#' # Let's compare the results:
-#' fit_csem$Estimates$Weight_estimates
-#' PLS_result$weights
-#'
-#' fit_csem$Estimates$Path_estimates
-#' PLS_result$effects
-#'
-#' head(fit_csem$Estimates$Construct_scores -
-#'        PLS_result$components)
-#'
-#' assess(fit_csem, "r2")
+#' # R squared:
 #' get_r2(PLS_result)
 #'
-#' # We can fit the same model with the regression scheme:
-#' PLS_result <- PLS(measurement = alist(eta1 ~ y11 + y12 + y13,
-#'                                       eta2 ~ y21 + y22 + y23,
-#'                                       eta3 ~ y31 + y32 + y33),
-#'                   structure = alist(eta2 ~ eta1,
-#'                                     eta3 ~ eta1 + eta2),
-#'                   data = data_set,
-#'                   path_estimation = "regression")
-#'
-#' # same thing with cSEM
-#' fit_csem <- csem(data_set,
-#'                  model,
-#'                  .PLS_modes = "modeB",
-#'                  .PLS_weight_scheme_inner = "path")
-#' # Let's compare the results:
-#' fit_csem$Estimates$Weight_estimates
-#' PLS_result$weights
-#'
-#' fit_csem$Estimates$Path_estimates
-#' PLS_result$effects
-#'
-#' head(fit_csem$Estimates$Construct_scores -
-#'        PLS_result$components)
-#'
-#' assess(fit_csem, "r2")
-#' get_r2(PLS_result)
+#' # Use confidence_intervals to bootstrap confidence intervals for all parameters:
+#' ci <- confidence_intervals(PLS_result,
+#'                            # Increase for actual use:
+#'                            R = 10)
 PLS <- function(measurement,
                 structure,
                 data,
                 as_reflective = NULL,
-                imputation_function = function(data, weights) return(data),
+                imputation_function = fail_on_NA,
                 sample_weights = NULL,
                 path_estimation = "regression",
                 max_iterations = 1000,
                 convergence = 1e-5){
+
+  check_formulas(measurement = measurement,
+                 structure = structure)
+
+  # create weights
   if(!is.null(sample_weights)){
     if(length(sample_weights) != nrow(data))
       stop("There must be one weight for each row in the data set.")
@@ -192,16 +158,16 @@ PLS <- function(measurement,
     #### Outer Model ####
     # First, we predict the components using the weights and the data.
     # As we don't estimate any parameters here, no weighting is needed.
-    component_values <- sapply(weights,
+    composite_values <- sapply(weights,
                                function(x) data_std[, names(x), drop = FALSE] %*% matrix(x, ncol = 1))
     # Next, we scale the components. Here, we use the weights to compute the
     # means and covariances.
-    component_values <- corpcor::wt.scale(component_values,
+    composite_values <- corpcor::wt.scale(composite_values,
                                           w = sample_weights)
 
     #### Inner Model ####
     # We compute the correlations of the components.
-    component_correlation <- stats::cov.wt(component_values,
+    component_correlation <- stats::cov.wt(composite_values,
                                            wt = sample_weights,
                                            cor = TRUE,
                                            method = "ML")$cor
@@ -212,30 +178,30 @@ PLS <- function(measurement,
       # unrelated constructs with 0. If constructs are related, we put a 1 in the
       # as effect if the correlation is positive and a -1 if the correlation is negative.
       effects_matrix <- sign(component_correlation) *
-        adjacency_matrix[colnames(component_values), colnames(component_values)]
+        adjacency_matrix[colnames(composite_values), colnames(composite_values)]
     }else if(path_estimation == "regression"){
       # For the path estimation, we first set all correlations of unrelated
       # variables to zero
       effects_matrix <- component_correlation *
-        adjacency_matrix[colnames(component_values), colnames(component_values)]
+        adjacency_matrix[colnames(composite_values), colnames(composite_values)]
       # Now, we replace all correlations with regression weights for endogenous
       # variables:
       effects <- sapply(structure,
                         function(x) regression_coef(formula = x,
-                                                    data = as.data.frame(component_values),
+                                                    data = as.data.frame(composite_values),
                                                     wt = sample_weights)[-1],
                         simplify = FALSE)
       names(effects) <- sapply(structure, function(x) all.vars(x)[1])
       for(effect in names(effects)){
         # Note that we have to put the effects into the columns as we are using
-        # the matrix multiplication component_values %*% effects_matrix below.
+        # the matrix multiplication composite_values %*% effects_matrix below.
         effects_matrix[names(effects[[effect]]), effect] <- effects[[effect]]
       }
     }else{
       stop("Unknown path_estimation selected. Only centroid and regression are supported.")
     }
     # With this effects matrix, we update the components:
-    component_values <- component_values %*% effects_matrix
+    composite_values <- composite_values %*% effects_matrix
 
     # Finally, we update the weights by predicting the component values with the
     # observed data using linear regressions.
@@ -243,18 +209,18 @@ PLS <- function(measurement,
     for(comp in names(measurement)){
       if(comp %in% as_reflective){
         # Mode A: We predict the items using the composites
-        current_items <- all.vars(measurement[[comp]])[-1]
-        weights_upd[[comp]] <- sapply(current_items,
-                                      function(x) coef(lm(as.formula(paste0(x, " ~ ", comp)),
-                                                          data = as.data.frame(cbind(data_std, component_values)),
-                                                          weights = sample_weights))[-1],
-                                      simplify = TRUE)
-        names(weights_upd[[comp]]) <- current_items
+        weights_upd[[comp]] <- mode_A(measurement = measurement[[comp]],
+                                      composite = comp,
+                                      data_std = data_std,
+                                      composite_values = composite_values,
+                                      sample_weights = sample_weights)
       }else{
         # Mode B: We predict the composite using the items
-        weights_upd[[comp]] <- regression_coef(formula = measurement[[comp]],
-                                               data = as.data.frame(cbind(data_std, component_values)),
-                                               wt = sample_weights)[-1]
+        weights_upd[[comp]] <- mode_B(measurement = measurement[[comp]],
+                                      composite = comp,
+                                      data_std = data_std,
+                                      composite_values = composite_values,
+                                      sample_weights = sample_weights)
       }
     }
 
@@ -275,10 +241,10 @@ PLS <- function(measurement,
   # Finally, we compute the actual structural effects. To this end, we go one last
   # time through the steps above.
   # Predict components:
-  component_values <- sapply(weights,
+  composite_values <- sapply(weights,
                              function(x) data_std[, names(x), drop = FALSE] %*% matrix(x, ncol = 1))
   # Scale components:
-  component_values <- corpcor::wt.scale(component_values,
+  composite_values <- corpcor::wt.scale(composite_values,
                                         w = sample_weights)
 
   # Compute the final weights. In this round, we do not distinguish between
@@ -287,15 +253,17 @@ PLS <- function(measurement,
   weights <- list()
   for(comp in names(measurement)){
     # Mode B: We predict the composite using the items
-    weights[[comp]] <- regression_coef(formula = measurement[[comp]],
-                                       data = as.data.frame(cbind(data_std, component_values)),
-                                       wt = sample_weights)[-1]
+    weights[[comp]] <- mode_B(measurement = measurement[[comp]],
+                              composite = comp,
+                              data_std = data_std,
+                              composite_values = composite_values,
+                              sample_weights = sample_weights)
   }
 
   # unstandardized weights
   weights_unstandardized <-  sapply(measurement,
                                     function(x) regression_coef(x,
-                                                                data = as.data.frame(cbind(data, component_values)),
+                                                                data = as.data.frame(cbind(data, composite_values)),
                                                                 wt = sample_weights)[-1],
                                     simplify = FALSE)
   names(weights_unstandardized) <- names(weights)
@@ -303,7 +271,7 @@ PLS <- function(measurement,
   # Compute effects as linear regressions between the components:
   effects <- sapply(structure,
                     function(x) regression_coef(x,
-                                                data = as.data.frame(component_values),
+                                                data = as.data.frame(composite_values),
                                                 wt = sample_weights)[-1],
                     simplify = FALSE)
   names(effects) <- sapply(structure, function(x) all.vars(x)[1])
@@ -321,21 +289,112 @@ PLS <- function(measurement,
     }
     loadings[[component]] <- sapply(measurements,
                                     function(x) coef(lm(as.formula(paste0(x, " ~ ", component)),
-                                                        data = as.data.frame(cbind(data_std, component_values)),
+                                                        data = as.data.frame(cbind(data_std, composite_values)),
                                                         weights = sample_weights))[2],
                                     simplify = TRUE)
     names(loadings[[component]]) <- measurements
   }
 
-  # Return results:
-  result <- list(components = component_values,
+  # Combine results:
+  result <- list(components = composite_values,
                  weights = weights,
                  loadings = loadings,
                  weights_unstandardized = weights_unstandardized,
                  effects = effects,
                  input = input)
+
+  # compute total and indirect effects
+  indirect_total <- compute_summarized_effects(result)
+  # we already have the direct effects; we only need the indirect and total effects
+  result$total_effects <- indirect_total$total_effects
+  result$indirect_effects <- indirect_total$indirect_effects
+
+  result$input <- input
   class(result) <- "PLS_SEM"
   return(result)
+}
+
+#' check_formulas
+#'
+#' R's formulas are much more flexible than the current framework of basicPLS
+#' supports. We have to make sure that users are not trying to fit more complex
+#' models than what basicPLS allows.
+#' @param measurement alist with the measurement formulas
+#' @param structure alist with the structural formulas
+#' @param allowed pattern of supported formulas
+#' @returns nothing. Throws error in case of unsupported formulas
+#' @examples
+#' basicPLS:::check_formulas(measurement = alist(C ~ x1 + x2,
+#'                                               D ~ x3 + x4),
+#'                           structure = alist(D ~ C))
+#'
+check_formulas <- function(measurement,
+                           structure,
+                           allowed = "^[a-zA-Z0-9_]+[ ]*~[a-zA-Z0-9_\\+ ]+$"){
+  for(form in c(measurement, structure)){
+    if(!grepl(pattern = allowed,
+              x = paste0(format(form),
+                         collapse = "")))
+      stop(paste0("basicPLS currently only supports formulas with the pattern z ~ x + y. ",
+                  "The following is not allowed: ",
+                  paste0(format(form),
+                         collapse = ""), "."))
+  }
+}
+
+#' mode_A
+#'
+#' Mode A computes the weights as pseudo loadings. Say, composite C is a combination
+#' of c_1, c_2, c_3 (e.g., C = .4*c_1 + .6*c_2 + .2*c_3). Then, mode A turns the
+#' regression around and predicts each of the items c_1, c_2, c_3 with composite C:
+#' c_1 = b_01 + b_11 * C + e, c_2 = b_02 + b_12 * C + e, c_3 = b_03 + b_13 * C + e.
+#' The new weights are given by b_11, b_12, b_13.
+#' @param measurement formula specifying the measurement (e.g., C ~ c_1 + c_2 + c_3)
+#' @param composite the name of the composite which should be computed as (e.g., "C")
+#' @param data_std standardized data set
+#' @param composite_values current composite values
+#' @param sample_weights weight for each observation
+#' @returns a vector with updated weights
+mode_A <- function(measurement,
+                   composite,
+                   data_std,
+                   composite_values,
+                   sample_weights){
+  # Mode A: We predict the items using the composites
+  current_items <- all.vars(measurement)[-1]
+  wt <- sapply(current_items,
+               function(x) coef(lm(as.formula(paste0(x, " ~ ", composite)),
+                                   data = as.data.frame(cbind(data_std, composite_values)),
+                                   weights = sample_weights))[-1],
+               simplify = TRUE)
+  names(wt) <- current_items
+
+  return(wt)
+}
+
+#' mode_B
+#'
+#' Mode B computes the weights using a regression of the composite on the items.
+#' Say, composite C is a combination of c_1, c_2, c_3 (e.g., C = .4*c_1 + .6*c_2 + .2*c_3).
+#' Then, mode B estimates the new weights by estimating the weights of the regression
+#' C = b_0 + b_1*c_1 + b_2*c_2 + b_3*c_3 + e.
+#' The new weights are given by b_1, b_2, b_3.
+#' @param measurement formula specifying the measurement (e.g., C ~ c_1 + c_2 + c_3)
+#' @param composite the name of the composite which should be computed as (e.g., "C")
+#' @param data_std standardized data set
+#' @param composite_values current composite values
+#' @param sample_weights weight for each observation
+#' @returns a vector with updated weights
+mode_B <- function(measurement,
+                   composite,
+                   data_std,
+                   composite_values,
+                   sample_weights){
+  # Mode B: We predict the composite using the items
+  wt <- regression_coef(formula = measurement,
+                        data = as.data.frame(cbind(data_std, composite_values)),
+                        wt = sample_weights)[-1]
+  return(wt)
 }
 
 #' print.PLS_SEM
@@ -378,15 +437,15 @@ coef.PLS_SEM <- function(object, include_loadings = FALSE, ...){
   par_names  <- c()
   for(comp in names(object$weights)){
     par_values <- c(par_values, object$weights[[comp]])
-    par_names <- c(par_names, paste0(comp, " <~ ", names(object$weights[[comp]])))
+    par_names <- c(par_names, paste0(comp, " <- ", names(object$weights[[comp]])))
     if(include_loadings){
       par_values <- c(par_values, object$loadings[[comp]])
-      par_names <- c(par_names, paste0(comp, " =~ ", names(object$loadings[[comp]])))
+      par_names <- c(par_names, paste0(comp, " -> ", names(object$loadings[[comp]])))
     }
   }
   for(comp in names(object$effects)){
     par_values <- c(par_values, object$effects[[comp]])
-    par_names <- c(par_names, paste0(comp, " ~ ", names(object$effects[[comp]])))
+    par_names <- c(par_names, paste0(comp, " <- ", names(object$effects[[comp]])))
   }
   names(par_values) <- par_names
   return(par_values)
@@ -409,69 +468,75 @@ regression_coef <- function(formula, data, wt = NULL){
   return(coef(lm(formula = formula, data = data , weights = wt)))
 }
 
-#' confidence_intervals
+#' compute_summarized_effects
 #'
-#' Compute confidence intervals for the parameters using bootstrap samples
-#' @param PLS_result results from PLS
-#' @param include_loadings should loadings also be returned?
-#' @param alpha significance level
-#' @param R number of repetitions
-#' @returns boostrap results
-#' @importFrom boot boot
-#' @importFrom stats sd
-#' @importFrom stats quantile
-#' @export
-confidence_intervals <- function(PLS_result,
-                                 include_loadings = FALSE,
-                                 alpha = .05,
-                                 R = 1000){
-
-  bootstrap_pls <- function(dat,
-                            indices,
-                            measurement,
-                            structure,
-                            imputation_function,
-                            sample_weights,
-                            path_estimation,
-                            max_iterations,
-                            convergence,
-                            include_loadings){
-    fit_results <- suppressMessages(basicPLS::PLS(measurement = measurement,
-                                                  structure = structure,
-                                                  data = dat[indices,, drop = FALSE],
-                                                  imputation_function = imputation_function,
-                                                  sample_weights = sample_weights[indices],
-                                                  path_estimation = path_estimation,
-                                                  max_iterations = max_iterations,
-                                                  convergence = convergence))
-    return(coef(fit_results, include_loadings = include_loadings))
+#' Computes direct, indirect, and total effects
+#' for a PLS model
+#' @param PLS_result PLS model fitted with PLS() (see ?PLS)
+#' @returns list with direct, indirect, and total effects.
+#' @keywords internal
+compute_summarized_effects <- function(PLS_result){
+  effects <- PLS_result$effects
+  measurement <- PLS_result$input$measurement
+  # The following is adapted from plspm. See
+  # https://github.com/gastonstat/plspm/blob/master/R/get_effects.r
+  composites <- sapply(measurement, function(x) all.vars(x)[1], simplify = TRUE)
+  structure_matrix <- matrix(0,
+                             nrow = length(composites),
+                             ncol = length(composites),
+                             dimnames = list(composites, composites))
+  for(dep in composites){
+    if(!dep %in% names(effects))
+      next
+    structure_matrix[dep, names(effects[[dep]])] <- effects[[dep]]
   }
-  # bootstrapping
-  results <- boot::boot(PLS_result$input$data,
-                        statistic = bootstrap_pls,
-                        R = R,
-                        measurement = PLS_result$input$measurement,
-                        structure = PLS_result$input$structure,
-                        imputation_function = PLS_result$input$imputation_function,
-                        sample_weights = PLS_result$input$sample_weights,
-                        path_estimation = PLS_result$input$path_estimation,
-                        max_iterations = PLS_result$input$max_iterations,
-                        convergence = PLS_result$input$convergence,
-                        include_loadings = include_loadings)
-  colnames(results$t) <- names(results$t0)
-  lower_ci <- apply(results$t, 2, quantile, alpha)
-  upper_ci <- apply(results$t, 2, quantile, 1-alpha)
 
-  return(list(confidence_intervals = data.frame(Parameter = names(results$t0),
-                                                Estimate = unname(results$t0),
-                                                type = ifelse(grepl("=~", names(results$t0)),
-                                                              "loading",
-                                                              ifelse(grepl("<~", names(results$t0)),
-                                                                     "weight",
-                                                                     "regression")),
-                                                lower_ci = unname(lower_ci),
-                                                upper_ci = unname(upper_ci)),
-              full_results = results))
+  total_effects <- structure_matrix
+  current_effects <- structure_matrix
+
+  if(length(composites) > 2){
+
+    for(i in 2:(length(composites)-1)){
+      current_effects <- current_effects %*% structure_matrix
+      total_effects <- total_effects + current_effects
+    }
+  }
+
+  indirect_effects <- total_effects - structure_matrix
+
+  # because everything else is organized as lists, we will do the same here:
+  total_effects_list <- list()
+  indirect_effects_list <- list()
+  for(dep in rownames(total_effects)){
+    if(!all(total_effects[dep,] == 0))
+      total_effects_list[[dep]] <- total_effects[dep,][total_effects[dep,] != 0]
+    if(!all(indirect_effects[dep,] == 0))
+      indirect_effects_list[[dep]] <- indirect_effects[dep, ][indirect_effects[dep, ] != 0]
+  }
+
+  return(list(direct_effects = effects,
+              total_effects = total_effects_list,
+              indirect_effects = indirect_effects_list))
+}
+
+#' flatten_effects
+#'
+#' Given a list of direct or indirect effects, this function flattens the list
+#' to a vector with relabeled parameters
+#' @param effects summarized total or indirect effects
+#' @param separator separator used when renaming the parameters
+#' @returns vector with effects
+#' @keywords internal
+flatten_effects <- function(effects, separator = "<-"){
+  flattened <- sapply(names(effects),
+                      function(x) {
+                        vals <- effects[[x]]
+                        names(vals) <- paste0(x, " ", separator, " ", names(vals))
+                        vals},
+                      simplify = FALSE) |>
+    unname() |>
+    unlist()
+  return(flattened)
 }
 
 #' get_r2
@@ -492,6 +557,89 @@ get_r2 <- function(PLS_result){
   return(r2)
 }
 
+#' confidence_intervals
+#'
+#' Compute confidence intervals for the parameters using bootstrap samples
+#' @param PLS_result results from PLS
+#' @param alpha significance level
+#' @param R number of repetitions
+#' @param ... additional arguments passed to boot. See ?boot::boot
+#' @returns bootstrap results
+#' @importFrom boot boot
+#' @importFrom stats sd
+#' @importFrom stats quantile
+#' @import stringr
+#' @export
+confidence_intervals <- function(PLS_result,
+                                 alpha = .05,
+                                 R = 1000,
+                                 ...){
+
+  bootstrap_pls <- function(dat,
+                            indices,
+                            measurement,
+                            structure,
+                            imputation_function,
+                            sample_weights,
+                            path_estimation,
+                            max_iterations,
+                            convergence){
+    fit_results <- suppressMessages(basicPLS::PLS(measurement = measurement,
+                                                  structure = structure,
+                                                  data = dat[indices,, drop = FALSE],
+                                                  imputation_function = imputation_function,
+                                                  sample_weights = sample_weights[indices],
+                                                  path_estimation = path_estimation,
+                                                  max_iterations = max_iterations,
+                                                  convergence = convergence))
+    # We have to do some trickery because boot expects that we only return
+    # a single vector.
+    return_vector <- c()
+    for(p_type in c("effects", "weights", "loadings", "total_effects", "indirect_effects")){
+      add_to_return <- flatten_effects(fit_results[[p_type]],
+                                       separator = ifelse(p_type == "loadings", "->", "<-"))
+      names(add_to_return) <- paste0(p_type, ":", names(add_to_return))
+      return_vector <- c(return_vector, add_to_return)
+    }
+
+    return(return_vector)
+  }
+
+  # bootstrapping
+  results <- boot::boot(PLS_result$input$data,
+                        statistic = bootstrap_pls,
+                        R = R,
+                        measurement = PLS_result$input$measurement,
+                        structure = PLS_result$input$structure,
+                        imputation_function = PLS_result$input$imputation_function,
+                        sample_weights = PLS_result$input$sample_weights,
+                        path_estimation = PLS_result$input$path_estimation,
+                        max_iterations = PLS_result$input$max_iterations,
+                        convergence = PLS_result$input$convergence,
+                        ...)
+  colnames(results$t) <- names(results$t0)
+  lower_ci <- apply(results$t, 2, quantile, alpha)
+  upper_ci <- apply(results$t, 2, quantile, 1-alpha)
+
+  confidence_intervals <- data.frame(Parameter = names(results$t0),
+                                     Estimate = unname(results$t0),
+                                     lower_ci = unname(lower_ci),
+                                     upper_ci = unname(upper_ci))
+
+  # the results combine weights, loadings, direct, indirect, and total effects.
+  # We want to split those up again.
+  parameter_class <- stringr::str_extract(string = confidence_intervals$Parameter,
+                                          pattern = "^.*:") |>
+    stringr::str_remove(pattern = ":")
+  confidence_intervals$Parameter <- stringr::str_extract(string = confidence_intervals$Parameter,
+                                                         pattern = ":.*$") |>
+    stringr::str_remove(pattern = ":")
+
+  confidence_intervals <- split(confidence_intervals, f = parameter_class)
+
+  return(list("confidence_intervals" = confidence_intervals,
+              "full_results" = results))
+}
 
 #' mean_impute
 #'
@@ -501,16 +649,14 @@ get_r2 <- function(PLS_result){
 #' @returns data set with imputed missings
 #' @export
 #' @examples
-#' library(cSEM)
 #' library(basicPLS)
-#' data(satisfaction)
-#' satisfaction_with_missings <- satisfaction
+#' satisfaction_with_missings <- basicPLS::satisfaction
 #' missings <- matrix(sample(c(TRUE, FALSE),
-#'                    nrow(satisfaction)*ncol(satisfaction),
+#'                    nrow(basicPLS::satisfaction)*ncol(basicPLS::satisfaction),
 #'                    prob = c(.1, .9),
 #'                    replace = TRUE),
-#'                    nrow = nrow(satisfaction),
-#'                    ncol = ncol(satisfaction))
+#'                    nrow = nrow(basicPLS::satisfaction),
+#'                    ncol = ncol(basicPLS::satisfaction))
 #' satisfaction_with_missings[missings] <- NA
 #' mean_impute(data = satisfaction_with_missings,
 #'             weights = rep(1, nrow(satisfaction_with_missings)))
@@ -523,3 +669,28 @@ mean_impute <- function(data, weights){
   return(data)
 }
 
+#' fail_on_NA
+#'
+#' Fails if there is any missing data
+#' @param data data set with missings
+#' @param weights vector with weights for each person in the data set
+#' @returns data in case of no error
+#' @export
+#' @examples
+#' library(basicPLS)
+#' satisfaction_with_missings <- basicPLS::satisfaction
+#' missings <- matrix(sample(c(TRUE, FALSE),
+#'                    nrow(basicPLS::satisfaction)*ncol(basicPLS::satisfaction),
+#'                    prob = c(.1, .9),
+#'                    replace = TRUE),
+#'                    nrow = nrow(basicPLS::satisfaction),
+#'                    ncol = ncol(basicPLS::satisfaction))
+#' satisfaction_with_missings[missings] <- NA
+#' try(fail_on_NA(data = satisfaction_with_missings,
+#'                weights = rep(1, nrow(satisfaction_with_missings))))
+fail_on_NA <- function(data, weights){
+  if(anyNA(data))
+    stop("Data has missings. Specify an imputation method to address the missingness (e.g., imputation_function = mean_impute).")
+
+  return(data)
+}
