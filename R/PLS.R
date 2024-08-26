@@ -18,7 +18,7 @@
 #' algorithm
 #' @param convergence convergence criterion. If the maximal change in the
 #' weights falls below this value, the estimation is stopped.
-#' @return list with weights, effects, and components
+#' @return list with weights, effects, and composites
 #' @importFrom stats runif
 #' @importFrom stats cor
 #' @importFrom stats coef
@@ -87,25 +87,25 @@ PLS <- function(measurement,
   )
 
   #### Preparation ####
-  # We will first extract all components from the measurement structure. To this
-  # end, we leverage that each component must be defined as the first element in
+  # We will first extract all composites from the measurement structure. To this
+  # end, we leverage that each composite must be defined as the first element in
   # the measurement models:
-  components <- sapply(measurement, function(x) all.vars(x)[1], simplify = TRUE)
-  names(measurement) <- components
+  composites <- sapply(measurement, function(x) all.vars(x)[1], simplify = TRUE)
+  names(measurement) <- composites
 
   # Next, we extract all observed variables. Those are on the right hand side of the
   # measurement models. The result will be a list and we will assign the
   # names of the constructs to the list elements.
   observables <- sapply(measurement, function(x) all.vars(x)[-1], simplify = FALSE)
-  names(observables) <- components
+  names(observables) <- composites
 
   # Check if all observables are in the data set:
   if(any(!unlist(observables) %in% colnames(data)))
     stop("The following observables were not found in the data set: ",
          paste0(unlist(observables)[!unlist(observables) %in% colnames(data)], collapse = ", "), ".")
-  # check if requested latents are in the components
+  # check if requested latents are in the composites
   for(as_refl in as_reflective){
-    if(!as_refl %in% components)
+    if(!as_refl %in% composites)
       stop(paste0("Could not find ", as_refl, " in measurements."))
   }
 
@@ -114,24 +114,24 @@ PLS <- function(measurement,
                                                     sample_weights),
                                 w = sample_weights)
 
-  # Now, we construct a matrix indicating which of the components has an effect on
-  # which other component. To this end, we will have to check the structure.
+  # Now, we construct a matrix indicating which of the composites has an effect on
+  # which other composite. To this end, we will have to check the structure.
   # Extract the names of all variables in the structural part:
   structures <- sapply(structure, all.vars, simplify = FALSE)
-  if(any(!unlist(structures) %in% components))
+  if(any(!unlist(structures) %in% composites))
     stop("Could not find a measurement model for ",
-         unlist(structures)[!unlist(structures) %in% components], ".")
+         unlist(structures)[!unlist(structures) %in% composites], ".")
   # The structure matrix will have ones for each directed effect.
   structure_matrix <- matrix(0,
-                             nrow = length(components),
-                             ncol = length(components),
-                             dimnames = list(components, components))
-  for(component in components){
+                             nrow = length(composites),
+                             ncol = length(composites),
+                             dimnames = list(composites, composites))
+  for(composite in composites){
     for(str in structures){
-      # check if the component is on the left hand side of a structure
-      if(component == str[1]){
-        # then all right hand side variables are predictors of the component
-        structure_matrix[component, str[-1]] <- 1
+      # check if the composite is on the left hand side of a structure
+      if(composite == str[1]){
+        # then all right hand side variables are predictors of the composite
+        structure_matrix[composite, str[-1]] <- 1
       }
     }
   }
@@ -142,7 +142,7 @@ PLS <- function(measurement,
 
   # Finally, we initialize the weights. We could be using a full weights
   # matrix, but here we will keep things simpler (and slower) by having
-  # component-specific weights.
+  # composite-specific weights.
   weights <- sapply(observables,
                     function(x) {
                       w <- rep(1, length(x))
@@ -156,33 +156,33 @@ PLS <- function(measurement,
   for(i in seq_len(max_iterations)){
 
     #### Outer Model ####
-    # First, we predict the components using the weights and the data.
+    # First, we predict the composites using the weights and the data.
     # As we don't estimate any parameters here, no weighting is needed.
     composite_values <- sapply(weights,
                                function(x) data_std[, names(x), drop = FALSE] %*% matrix(x, ncol = 1))
-    # Next, we scale the components. Here, we use the weights to compute the
+    # Next, we scale the composites. Here, we use the weights to compute the
     # means and covariances.
     composite_values <- corpcor::wt.scale(composite_values,
                                           w = sample_weights)
 
     #### Inner Model ####
-    # We compute the correlations of the components.
-    component_correlation <- stats::cov.wt(composite_values,
+    # We compute the correlations of the composites.
+    composite_correlation <- stats::cov.wt(composite_values,
                                            wt = sample_weights,
                                            cor = TRUE,
                                            method = "ML")$cor
-    # Now, we take the component structure into account by creating a structure
+    # Now, we take the composite structure into account by creating a structure
     # matrix.
     if(path_estimation == "centroid"){
       # For the centroid approach, we simply replace all correlations between
       # unrelated constructs with 0. If constructs are related, we put a 1 in the
       # as effect if the correlation is positive and a -1 if the correlation is negative.
-      effects_matrix <- sign(component_correlation) *
+      effects_matrix <- sign(composite_correlation) *
         adjacency_matrix[colnames(composite_values), colnames(composite_values)]
     }else if(path_estimation == "regression"){
       # For the path estimation, we first set all correlations of unrelated
       # variables to zero
-      effects_matrix <- component_correlation *
+      effects_matrix <- composite_correlation *
         adjacency_matrix[colnames(composite_values), colnames(composite_values)]
       # Now, we replace all correlations with regression weights for endogenous
       # variables:
@@ -200,10 +200,10 @@ PLS <- function(measurement,
     }else{
       stop("Unknown path_estimation selected. Only centroid and regression are supported.")
     }
-    # With this effects matrix, we update the components:
+    # With this effects matrix, we update the composites:
     composite_values <- composite_values %*% effects_matrix
 
-    # Finally, we update the weights by predicting the component values with the
+    # Finally, we update the weights by predicting the composite values with the
     # observed data using linear regressions.
     weights_upd <- list()
     for(comp in names(measurement)){
@@ -240,10 +240,10 @@ PLS <- function(measurement,
 
   # Finally, we compute the actual structural effects. To this end, we go one last
   # time through the steps above.
-  # Predict components:
+  # Predict composites:
   composite_values <- sapply(weights,
                              function(x) data_std[, names(x), drop = FALSE] %*% matrix(x, ncol = 1))
-  # Scale components:
+  # Scale composites:
   composite_values <- corpcor::wt.scale(composite_values,
                                         w = sample_weights)
 
@@ -268,7 +268,7 @@ PLS <- function(measurement,
                                     simplify = FALSE)
   names(weights_unstandardized) <- names(weights)
 
-  # Compute effects as linear regressions between the components:
+  # Compute effects as linear regressions between the composites:
   effects <- sapply(structure,
                     function(x) regression_coef(x,
                                                 data = as.data.frame(composite_values),
@@ -280,23 +280,23 @@ PLS <- function(measurement,
   loadings <- list()
   for(m in measurement){
     # we have to reverse the direction of the measurements
-    component <- all.vars(m)[1]
+    composite <- all.vars(m)[1]
     measurements <-  all.vars(m)[-1]
     if(length(measurements) == 1){
-      loadings[[component]] <- 1
-      names(loadings[[component]]) <- measurements
+      loadings[[composite]] <- 1
+      names(loadings[[composite]]) <- measurements
       next
     }
-    loadings[[component]] <- sapply(measurements,
-                                    function(x) coef(lm(as.formula(paste0(x, " ~ ", component)),
+    loadings[[composite]] <- sapply(measurements,
+                                    function(x) coef(lm(as.formula(paste0(x, " ~ ", composite)),
                                                         data = as.data.frame(cbind(data_std, composite_values)),
                                                         weights = sample_weights))[2],
                                     simplify = TRUE)
-    names(loadings[[component]]) <- measurements
+    names(loadings[[composite]]) <- measurements
   }
 
   # Combine results:
-  result <- list(components = composite_values,
+  result <- list(composites = composite_values,
                  weights = weights,
                  loadings = loadings,
                  weights_unstandardized = weights_unstandardized,
@@ -406,7 +406,7 @@ mode_B <- function(measurement,
 #' @export
 print.PLS_SEM <- function(x, ...){
   cat("\n#### PLS SEM Results ####\n")
-  cat("Component Weights:\n")
+  cat("Composite Weights:\n")
   for(comp in names(x$weights)){
     cat(paste0(comp, " = ",
                paste0(paste0(format(round(x$weights[[comp]], 3), nsmall = 3), "*", names(x$weights[[comp]])),
@@ -550,7 +550,7 @@ flatten_effects <- function(effects, separator = "<-"){
 get_r2 <- function(PLS_result){
   r2 <- sapply(PLS_result$input$structure,
                function(x) summary(lm(as.formula(x),
-                                      data = as.data.frame(PLS_result$components),
+                                      data = as.data.frame(PLS_result$composites),
                                       weights = PLS_result$input$sample_weights))$r.squared,
                simplify = FALSE)
   names(r2) <- names(PLS_result$effects)

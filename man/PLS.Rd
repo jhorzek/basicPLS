@@ -42,7 +42,7 @@ algorithm}
 weights falls below this value, the estimation is stopped.}
 }
 \value{
-list with weights, effects, and components
+list with weights, effects, and composites
 }
 \description{
 Basic function estimating a PLS-SEM with formative measurement model.

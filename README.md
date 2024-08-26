@@ -35,7 +35,7 @@ PLS_result <- PLS(
 PLS_result
 #> 
 #> #### PLS SEM Results ####
-#> Component Weights:
+#> Composite Weights:
 #> EXPE = 0.095*expe1 + 0.433*expe2 + 0.164*expe3 + 0.315*expe4 + 0.238*expe5 
 #> IMAG = -0.032*imag1 +  0.221*imag2 +  0.493*imag3 +  0.038*imag4 +  0.472*imag5 
 #> LOY =  0.560*loy1 +  0.072*loy2 +  0.515*loy3 + -0.077*loy4 
@@ -49,26 +49,23 @@ PLS_result
 #> SAT ~ 0.205*IMAG + 0.001*EXPE + 0.086*QUAL + 0.626*VAL 
 #> LOY ~ 0.227*IMAG + 0.560*SAT 
 #> VAL ~ 0.152*EXPE + 0.648*QUAL
-```
-
-``` r
 
 # Use confidence_intervals to bootstrap confidence intervals for all parameters:
 ci <- confidence_intervals(PLS_result,
                            # increase for actual use:
                            R = 50)
 ci$confidence_intervals$effects
-#>       Parameter     Estimate     lower_ci   upper_ci
-#> 1  QUAL <- EXPE 0.8511298309  0.820574269 0.87995689
-#> 2  EXPE <- IMAG 0.6085981452  0.515259838 0.68718012
-#> 3   SAT <- IMAG 0.2046077647  0.133005957 0.27571949
-#> 4   SAT <- EXPE 0.0005350609 -0.107277287 0.09379206
-#> 5   SAT <- QUAL 0.0856953262 -0.058195172 0.24005753
-#> 6    SAT <- VAL 0.6256122447  0.504416478 0.74307545
-#> 7   LOY <- IMAG 0.2274903742  0.138637173 0.36935456
-#> 8    LOY <- SAT 0.5601144411  0.423051704 0.64812599
-#> 9   VAL <- EXPE 0.1524291435  0.006330712 0.30592149
-#> 10  VAL <- QUAL 0.6478498478  0.509029473 0.76138657
+#>       Parameter     Estimate    lower_ci   upper_ci
+#> 1  QUAL <- EXPE 0.8511298309  0.81659304 0.87109779
+#> 2  EXPE <- IMAG 0.6085981452  0.54769258 0.68113772
+#> 3   SAT <- IMAG 0.2046077647  0.12973748 0.30249271
+#> 4   SAT <- EXPE 0.0005350609 -0.09381798 0.08434397
+#> 5   SAT <- QUAL 0.0856953262 -0.04374396 0.28566479
+#> 6    SAT <- VAL 0.6256122447  0.46587410 0.75732287
+#> 7   LOY <- IMAG 0.2274903742  0.11825588 0.35169751
+#> 8    LOY <- SAT 0.5601144411  0.44916450 0.68132001
+#> 9   VAL <- EXPE 0.1524291435  0.04463562 0.30011672
+#> 10  VAL <- QUAL 0.6478498478  0.50508385 0.77578808
 ```
 
 To switch to mode_A (“reflective”) for a composite, use `as_reflective`:
@@ -89,13 +86,10 @@ PLS_result <- PLS(
   as_reflective = c("EXPE", "IMAG", "LOY", "QUAL", "SAT", "VAL"),
   data = data_set)
 #> The algorithm took 5 iterations to converge.
-```
-
-``` r
 PLS_result
 #> 
 #> #### PLS SEM Results ####
-#> Component Weights:
+#> Composite Weights:
 #> EXPE = 0.237*expe1 + 0.282*expe2 + 0.224*expe3 + 0.259*expe4 + 0.265*expe5 
 #> IMAG = 0.206*imag1 + 0.297*imag2 + 0.308*imag3 + 0.181*imag4 + 0.285*imag5 
 #> LOY = 0.378*loy1 + 0.248*loy2 + 0.375*loy3 + 0.218*loy4 
@@ -138,13 +132,10 @@ PLS_result <- PLS(
   sample_weights = data_set$sample_weights
   )
 #> The algorithm took 10 iterations to converge.
-```
-
-``` r
 PLS_result
 #> 
 #> #### PLS SEM Results ####
-#> Component Weights:
+#> Composite Weights:
 #> EXPE = 0.077*expe1 + 0.405*expe2 + 0.246*expe3 + 0.395*expe4 + 0.161*expe5 
 #> IMAG = -0.101*imag1 +  0.459*imag2 +  0.416*imag3 +  0.054*imag4 +  0.369*imag5 
 #> LOY = 0.394*loy1 + 0.051*loy2 + 0.669*loy3 + 0.026*loy4 
@@ -158,9 +149,6 @@ PLS_result
 #> SAT ~  0.137*IMAG + -0.023*EXPE +  0.083*QUAL +  0.672*VAL 
 #> LOY ~ 0.285*IMAG + 0.550*SAT 
 #> VAL ~ 0.081*EXPE + 0.726*QUAL
-```
-
-``` r
 
 get_r2(PLS_result)
 #> $QUAL
