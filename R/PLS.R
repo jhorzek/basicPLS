@@ -9,6 +9,7 @@
 #' @param as_reflective vector with names of composites that should be treated
 #' as reflective. Internally, basicPLS will use mode A estimation for these
 #' composites, and mode B estimation for all other composites.
+#' @param consistent should consistent PLS be used?
 #' @param imputation_function a function that imputes missing data. The function
 #' will be given the raw data set and the weights.
 #' @param sample_weights data weights for weighted PLS-SEM
@@ -57,6 +58,7 @@ PLS <- function(measurement,
                 structure,
                 data,
                 as_reflective = NULL,
+                consistent = TRUE,
                 imputation_function = fail_on_NA,
                 sample_weights = NULL,
                 path_estimation = "regression",
@@ -80,6 +82,7 @@ PLS <- function(measurement,
     structure = structure,
     data = data,
     as_reflective = as_reflective,
+    consistent = consistent,
     imputation_function = imputation_function,
     path_estimation = path_estimation,
     sample_weights = sample_weights,
@@ -190,7 +193,7 @@ PLS <- function(measurement,
       effects <- sapply(structure,
                         function(x) regression_coef(formula = x,
                                                     data = as.data.frame(composite_values),
-                                                    wt = sample_weights)[-1],
+                                                    wt = sample_weights),
                         simplify = FALSE)
       names(effects) <- sapply(structure, function(x) all.vars(x)[1])
       for(effect in names(effects)){
@@ -265,7 +268,7 @@ PLS <- function(measurement,
   weights_unstandardized <-  sapply(measurement,
                                     function(x) regression_coef(x,
                                                                 data = as.data.frame(cbind(data, composite_values)),
-                                                                wt = sample_weights)[-1],
+                                                                wt = sample_weights),
                                     simplify = FALSE)
   names(weights_unstandardized) <- names(weights)
 
@@ -273,7 +276,7 @@ PLS <- function(measurement,
   effects <- sapply(structure,
                     function(x) regression_coef(x,
                                                 data = as.data.frame(composite_values),
-                                                wt = sample_weights)[-1],
+                                                wt = sample_weights),
                     simplify = FALSE)
   names(effects) <- sapply(structure, function(x) all.vars(x)[1])
 
@@ -310,8 +313,17 @@ PLS <- function(measurement,
   result$total_effects <- indirect_total$total_effects
   result$indirect_effects <- indirect_total$indirect_effects
 
+  result$R2 <- get_r2(result)
   result$input <- input
+
   class(result) <- "PLS_SEM"
+
+  if(consistent & !is.null(as_reflective)){
+    result$R2 <- NULL
+    warning("Currently R2 is not supported for consistent PLS")
+    result <- debias_PLS(result)
+  }
+
   return(result)
 }
 
@@ -366,7 +378,7 @@ mode_B <- function(measurement,
   # Mode B: We predict the composite using the items
   wt <- regression_coef(formula = measurement,
                         data = as.data.frame(cbind(data_std, composite_values)),
-                        wt = sample_weights)[-1]
+                        wt = sample_weights)
   return(wt)
 }
 
@@ -424,24 +436,6 @@ coef.PLS_SEM <- function(object, include_loadings = FALSE, ...){
   return(par_values)
 }
 
-#' get_r2
-#'
-#' Compute the R squared value for a PLS-SEM
-#' @param PLS_result fitted PLS-SEM
-#' @return list with R squared
-#' @importFrom stats lm
-#' @importFrom methods is
-#' @export
-get_r2 <- function(PLS_result){
-  r2 <- sapply(PLS_result$input$structure,
-               function(x) summary(lm(as.formula(x),
-                                      data = as.data.frame(PLS_result$composites),
-                                      weights = PLS_result$input$sample_weights))$r.squared,
-               simplify = FALSE)
-  names(r2) <- names(PLS_result$effects)
-  return(r2)
-}
-
 #' confidence_intervals
 #'
 #' Compute confidence intervals for the parameters using bootstrap samples
@@ -465,6 +459,7 @@ confidence_intervals <- function(PLS_result,
                             measurement,
                             structure,
                             as_reflective,
+                            consistent,
                             imputation_function,
                             sample_weights,
                             path_estimation,
@@ -474,6 +469,7 @@ confidence_intervals <- function(PLS_result,
                                                   structure = structure,
                                                   data = dat[indices,, drop = FALSE],
                                                   as_reflective = as_reflective,
+                                                  consistent = consistent,
                                                   imputation_function = imputation_function,
                                                   sample_weights = sample_weights[indices],
                                                   path_estimation = path_estimation,
@@ -499,6 +495,7 @@ confidence_intervals <- function(PLS_result,
                         measurement = PLS_result$input$measurement,
                         structure = PLS_result$input$structure,
                         as_reflective = PLS_result$input$as_reflective,
+                        consistent = PLS_result$input$consistent,
                         imputation_function = PLS_result$input$imputation_function,
                         sample_weights = PLS_result$input$sample_weights,
                         path_estimation = PLS_result$input$path_estimation,

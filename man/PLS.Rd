@@ -9,6 +9,7 @@ PLS(
   structure,
   data,
   as_reflective = NULL,
+  consistent = TRUE,
   imputation_function = fail_on_NA,
   sample_weights = NULL,
   path_estimation = "regression",
@@ -26,6 +27,8 @@ PLS(
 \item{as_reflective}{vector with names of composites that should be treated
 as reflective. Internally, basicPLS will use mode A estimation for these
 composites, and mode B estimation for all other composites.}
+
+\item{consistent}{should consistent PLS be used?}
 
 \item{imputation_function}{a function that imputes missing data. The function
 will be given the raw data set and the weights.}

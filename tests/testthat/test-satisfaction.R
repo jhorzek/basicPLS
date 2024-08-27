@@ -462,6 +462,7 @@ VAL =~ val1 + val2 + val3 + val4
       VAL ~ EXPE + QUAL),
     data = satisfaction,
     as_reflective = c("EXPE", "IMAG", "LOY", "QUAL", "SAT", "VAL"),
+    consistent = FALSE,
     path_estimation = "regression")
 
   for(i in rownames(csem_sat$Estimates$Path_estimates)){
@@ -530,6 +531,7 @@ test_that("Test Satisfaction - Reflective Weighted", {
       VAL ~ EXPE + QUAL),
     data = satisfaction_data,
     as_reflective = c("EXPE", "IMAG", "LOY", "QUAL", "SAT", "VAL"),
+    consistent = FALSE,
     path_estimation = "regression",
     sample_weights = satisfaction_data$sample_weights)
 
@@ -592,6 +594,7 @@ test_that("Test Satisfaction - Reflective Weighted Mean Imputation", {
       VAL ~ EXPE + QUAL),
     data = satisfaction_NA,
     as_reflective = c("EXPE", "IMAG", "LOY", "QUAL", "SAT", "VAL"),
+    consistent = FALSE,
     path_estimation = "regression",
     imputation_function = mean_impute,
     sample_weights = satisfaction_NA$sample_weights)
@@ -675,6 +678,7 @@ VAL =~ val1 + val2 + val3 + val4
       VAL ~ EXPE + QUAL),
     data = satisfaction,
     as_reflective = c("IMAG", "LOY", "SAT", "VAL"),
+    consistent = FALSE,
     path_estimation = "regression")
 
   for(i in rownames(csem_sat$Estimates$Path_estimates)){
