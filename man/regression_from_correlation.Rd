@@ -5,7 +5,7 @@
 \title{For debiasing, we need to compute regressions based on correlations. This
 function provides that feature. See https://wviechtb.github.io/metafor/reference/matreg.html}
 \usage{
-regression_from_correlation(R, dependent, predictors)
+regression_from_correlation(R, dependent, predictors, N)
 }
 \arguments{
 \item{R}{correlation matrix}

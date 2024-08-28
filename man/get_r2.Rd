@@ -10,8 +10,9 @@ get_r2(PLS_result)
 \item{PLS_result}{fitted PLS-SEM}
 }
 \value{
-list with R squared
+list with R squared and adjusted R squared
 }
 \description{
 Compute the R squared value for a PLS-SEM
 }
+\keyword{internal}

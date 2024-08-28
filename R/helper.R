@@ -53,12 +53,21 @@ regression_coef <- function(formula, data, wt = NULL){
 #' @keywords internal
 regression_from_correlation <- function(R,
                                         dependent,
-                                        predictors){
+                                        predictors,
+                                        N){
   # see https://wviechtb.github.io/metafor/reference/matreg.html
-  b <- solve(R[predictors, predictors]) %*% R[predictors, dependent]
+  b <- solve(R[predictors, predictors, drop = FALSE]) %*% R[predictors, dependent, drop = FALSE]
   # make the output consistent with that of regression_coef
   reg <- c(b)
   names(reg) <- predictors
+
+  # R squared: Adapted from https://github.com/wviechtb/metafor/blob/master/R/matreg.r#L235
+  sse <- 1 - c(t(b) %*% R[predictors, dependent, drop = FALSE])
+  df  <- N - length(predictors)
+
+  attr(reg, "R2")    <- 1 - sse
+  attr(reg, "R2adj") <- 1 - (1 - attr(reg, "R2")) * (N / df)
+
   return(reg)
 }
 
@@ -137,16 +146,24 @@ flatten_effects <- function(effects, separator = "<-"){
 #'
 #' Compute the R squared value for a PLS-SEM
 #' @param PLS_result fitted PLS-SEM
-#' @return list with R squared
+#' @return list with R squared and adjusted R squared
 #' @importFrom stats lm
 #' @importFrom methods is
-#' @export
+#' @keywords internal
 get_r2 <- function(PLS_result){
-  r2 <- sapply(PLS_result$input$structure,
+  R2 <- sapply(PLS_result$input$structure,
                function(x) summary(lm(as.formula(x),
                                       data = as.data.frame(PLS_result$composites),
                                       weights = PLS_result$input$sample_weights))$r.squared,
                simplify = FALSE)
-  names(r2) <- names(PLS_result$effects)
-  return(r2)
+  names(R2) <- names(PLS_result$effects)
+
+  R2adj <- sapply(PLS_result$input$structure,
+                  function(x) summary(lm(as.formula(x),
+                                         data = as.data.frame(PLS_result$composites),
+                                         weights = PLS_result$input$sample_weights))$adj.r.squared,
+                  simplify = FALSE)
+  names(R2adj) <- names(PLS_result$effects)
+  return(list(R2 = R2,
+              R2adj = R2adj))
 }

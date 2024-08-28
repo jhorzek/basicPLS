@@ -15,5 +15,6 @@ the model with updated loadings and regressions
 \description{
 Debiases the regressions and loadings
 in a PLS model with reflective constructs.
+See Dijkstra, T. K., & Henseler, J. (2015). Consistent partial least squares path modeling. MIS quarterly, 39(2), 297-316.
 }
 \keyword{internal}

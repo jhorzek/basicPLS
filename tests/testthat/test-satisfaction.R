@@ -42,6 +42,12 @@ VAL <~ val1 + val2 + val3 + val4
     data = satisfaction,
     path_estimation = "regression")
 
+  testthat::expect_true(all(abs(basic_sat$R2[names(csem_sat$Estimates$R2)] -
+                                  csem_sat$Estimates$R2) < 1e-3))
+
+  testthat::expect_true(all(abs(basic_sat$R2adj[names(csem_sat$Estimates$R2adj)] -
+                                  csem_sat$Estimates$R2adj) < 1e-3))
+
   for(i in rownames(csem_sat$Estimates$Path_estimates)){
     for(j in colnames(csem_sat$Estimates$Path_estimates)){
       if(csem_sat$Estimates$Path_estimates[i,j] == 0)
@@ -129,6 +135,12 @@ VAL <~ val1 + val2 + val3 + val4
       VAL ~ EXPE + QUAL),
     data = satisfaction,
     path_estimation = "regression")
+
+  testthat::expect_true(all(abs(basic_sat$R2[names(csem_sat$Estimates$R2)] -
+                                  csem_sat$Estimates$R2) < 1e-3))
+
+  testthat::expect_true(all(abs(basic_sat$R2adj[names(csem_sat$Estimates$R2adj)] -
+                                  csem_sat$Estimates$R2adj) < 1e-3))
 
   for(i in rownames(csem_sat$Estimates$Path_estimates)){
     for(j in colnames(csem_sat$Estimates$Path_estimates)){
@@ -218,6 +230,12 @@ VAL <~ val1 + val2 + val3 + val4
       VAL ~ EXPE + QUAL),
     data = satisfaction,
     path_estimation = "centroid")
+
+  testthat::expect_true(all(abs(basic_sat$R2[names(csem_sat$Estimates$R2)] -
+                                  csem_sat$Estimates$R2) < 1e-3))
+
+  testthat::expect_true(all(abs(basic_sat$R2adj[names(csem_sat$Estimates$R2adj)] -
+                                  csem_sat$Estimates$R2adj) < 1e-3))
 
   for(i in rownames(csem_sat$Estimates$Path_estimates)){
     for(j in colnames(csem_sat$Estimates$Path_estimates)){
@@ -309,6 +327,12 @@ VAL <~ val1 + val2 + val3 + val4
       VAL ~ EXPE + QUAL),
     data = satisfaction,
     path_estimation = "regression")
+
+  testthat::expect_true(all(abs(basic_sat$R2[names(csem_sat$Estimates$R2)] -
+                                  csem_sat$Estimates$R2) < 1e-3))
+
+  testthat::expect_true(all(abs(basic_sat$R2adj[names(csem_sat$Estimates$R2adj)] -
+                                  csem_sat$Estimates$R2adj) < 1e-3))
 
   cis <- basicPLS::confidence_intervals(PLS_result = basic_sat,
                                         R = 100)
@@ -464,6 +488,12 @@ VAL =~ val1 + val2 + val3 + val4
     as_reflective = c("EXPE", "IMAG", "LOY", "QUAL", "SAT", "VAL"),
     consistent = FALSE,
     path_estimation = "regression")
+
+  testthat::expect_true(all(abs(basic_sat$R2[names(csem_sat$Estimates$R2)] -
+                                  csem_sat$Estimates$R2) < 1e-3))
+
+  testthat::expect_true(all(abs(basic_sat$R2adj[names(csem_sat$Estimates$R2adj)] -
+                                  csem_sat$Estimates$R2adj) < 1e-3))
 
   for(i in rownames(csem_sat$Estimates$Path_estimates)){
     for(j in colnames(csem_sat$Estimates$Path_estimates)){
@@ -681,6 +711,12 @@ VAL =~ val1 + val2 + val3 + val4
     consistent = FALSE,
     path_estimation = "regression")
 
+  testthat::expect_true(all(abs(basic_sat$R2[names(csem_sat$Estimates$R2)] -
+                                  csem_sat$Estimates$R2) < 1e-3))
+
+  testthat::expect_true(all(abs(basic_sat$R2adj[names(csem_sat$Estimates$R2adj)] -
+                                  csem_sat$Estimates$R2adj) < 1e-3))
+
   for(i in rownames(csem_sat$Estimates$Path_estimates)){
     for(j in colnames(csem_sat$Estimates$Path_estimates)){
       if(csem_sat$Estimates$Path_estimates[i,j] == 0)
@@ -785,6 +821,12 @@ VAL =~ val1 + val2 + val3 + val4
     data = satisfaction_with_missings,
     imputation_function = basicPLS::mean_impute,
     path_estimation = "regression")
+
+  testthat::expect_true(all(abs(basic_sat$R2[names(csem_sat$Estimates$R2)] -
+                                  csem_sat$Estimates$R2) < 1e-3))
+
+  testthat::expect_true(all(abs(basic_sat$R2adj[names(csem_sat$Estimates$R2adj)] -
+                                  csem_sat$Estimates$R2adj) < 1e-3))
 
   for(i in rownames(csem_sat$Estimates$Path_estimates)){
     for(j in colnames(csem_sat$Estimates$Path_estimates)){

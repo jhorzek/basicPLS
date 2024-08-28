@@ -28,7 +28,8 @@ PLS(
 as reflective. Internally, basicPLS will use mode A estimation for these
 composites, and mode B estimation for all other composites.}
 
-\item{consistent}{should consistent PLS be used?}
+\item{consistent}{should consistent PLS be used? See Dijkstra, T. K., & Henseler, J. (2015).
+Consistent partial least squares path modeling. MIS quarterly, 39(2), 297-316.}
 
 \item{imputation_function}{a function that imputes missing data. The function
 will be given the raw data set and the weights.}
@@ -72,7 +73,7 @@ PLS_result <- PLS(
 PLS_result
 
 # R squared:
-get_r2(PLS_result)
+PLS_result$R2
 
 # Use confidence_intervals to bootstrap confidence intervals for all parameters:
 ci <- confidence_intervals(PLS_result,

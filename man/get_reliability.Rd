@@ -13,7 +13,8 @@ get_reliability(PLS_result)
 vector with reliabilities. For composites, the reliability is 1.0
 }
 \description{
-Compute the reliabilities of formative constructs in a PLS model
+Compute the reliabilities of formative constructs in a PLS model.
+See Dijkstra, T. K., & Henseler, J. (2015). Consistent partial least squares path modeling. MIS quarterly, 39(2), 297-316.
 }
 \examples{
 library(basicPLS)

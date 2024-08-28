@@ -9,7 +9,8 @@
 #' @param as_reflective vector with names of composites that should be treated
 #' as reflective. Internally, basicPLS will use mode A estimation for these
 #' composites, and mode B estimation for all other composites.
-#' @param consistent should consistent PLS be used?
+#' @param consistent should consistent PLS be used? See Dijkstra, T. K., & Henseler, J. (2015).
+#' Consistent partial least squares path modeling. MIS quarterly, 39(2), 297-316.
 #' @param imputation_function a function that imputes missing data. The function
 #' will be given the raw data set and the weights.
 #' @param sample_weights data weights for weighted PLS-SEM
@@ -48,7 +49,7 @@
 #' PLS_result
 #'
 #' # R squared:
-#' get_r2(PLS_result)
+#' PLS_result$R2
 #'
 #' # Use confidence_intervals to bootstrap confidence intervals for all parameters:
 #' ci <- confidence_intervals(PLS_result,
@@ -313,14 +314,14 @@ PLS <- function(measurement,
   result$total_effects <- indirect_total$total_effects
   result$indirect_effects <- indirect_total$indirect_effects
 
-  result$R2 <- get_r2(result)
+  R2 <- get_r2(result)
+  result$R2 <- unlist(R2$R2)
+  result$R2adj <- unlist(R2$R2adj)
   result$input <- input
 
   class(result) <- "PLS_SEM"
 
   if(consistent & !is.null(as_reflective)){
-    result$R2 <- NULL
-    warning("Currently R2 is not supported for consistent PLS")
     result <- debias_PLS(result)
   }
 
