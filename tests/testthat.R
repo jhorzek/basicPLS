@@ -7,6 +7,6 @@
 # * https://testthat.r-lib.org/articles/special-files.html
 
 library(testthat)
-library(basicPLS)
+library(plsR)
 
-test_check("basicPLS")
+test_check("plsR")

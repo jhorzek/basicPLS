@@ -1,10 +1,10 @@
-Package: basicPLS
+Package: plsR
 Type: Package
 Title: Provides a Simple PLS Model for Learning Purposes
 Version: 0.1.0
 Author: Jannik H. Orzek
 Maintainer: Jannik H. Orzek <jannik.orzek@mailbox.org>
-Description: basicPLS provides a simple, documented PLS algorithm to better understand
+Description: plsR provides a simple, documented PLS algorithm to better understand
     how PLS-SEM are estimated.
 Imports:
     boot,
@@ -20,4 +20,4 @@ Encoding: UTF-8
 LazyData: true
 Config/testthat/edition: 3
 Depends: 
-    R (>= 2.10)
+    R (>= 3.5.0)

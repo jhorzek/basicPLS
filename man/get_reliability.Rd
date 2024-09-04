@@ -17,8 +17,8 @@ Compute the reliabilities of formative constructs in a PLS model.
 See Dijkstra, T. K., & Henseler, J. (2015). Consistent partial least squares path modeling. MIS quarterly, 39(2), 297-316.
 }
 \examples{
-library(basicPLS)
-data_set <- basicPLS::satisfaction
+library(plsR)
+data_set <- plsR::satisfaction
 
 # Both, measurement and structural model are specified using R's formulas:
 PLS_result <- PLS(

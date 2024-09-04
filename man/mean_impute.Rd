@@ -18,14 +18,14 @@ data set with imputed missings
 Basic mean imputation for missing data
 }
 \examples{
-library(basicPLS)
-satisfaction_with_missings <- basicPLS::satisfaction
+library(plsR)
+satisfaction_with_missings <- plsR::satisfaction
 missings <- matrix(sample(c(TRUE, FALSE),
-                   nrow(basicPLS::satisfaction)*ncol(basicPLS::satisfaction),
+                   nrow(plsR::satisfaction)*ncol(plsR::satisfaction),
                    prob = c(.1, .9),
                    replace = TRUE),
-                   nrow = nrow(basicPLS::satisfaction),
-                   ncol = ncol(basicPLS::satisfaction))
+                   nrow = nrow(plsR::satisfaction),
+                   ncol = ncol(plsR::satisfaction))
 satisfaction_with_missings[missings] <- NA
 mean_impute(data = satisfaction_with_missings,
             weights = rep(1, nrow(satisfaction_with_missings)))

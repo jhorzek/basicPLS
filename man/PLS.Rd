@@ -25,7 +25,7 @@ PLS(
 \item{data}{data set (data.frame)}
 
 \item{as_reflective}{vector with names of composites that should be treated
-as reflective. Internally, basicPLS will use mode A estimation for these
+as reflective. Internally, plsR will use mode A estimation for these
 composites, and mode B estimation for all other composites.}
 
 \item{consistent}{should consistent PLS be used? See Dijkstra, T. K., & Henseler, J. (2015).
@@ -53,8 +53,8 @@ Basic function estimating a PLS-SEM with formative measurement model.
 The algorithm is adapted from https://github.com/gastonstat/plspm.
 }
 \examples{
-library(basicPLS)
-data_set <- basicPLS::satisfaction
+library(plsR)
+data_set <- plsR::satisfaction
 
 # Both, measurement and structural model are specified using R's formulas:
 PLS_result <- PLS(

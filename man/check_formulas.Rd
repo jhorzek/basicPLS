@@ -21,12 +21,12 @@ check_formulas(
 nothing. Throws error in case of unsupported formulas
 }
 \description{
-R's formulas are much more flexible than the current framework of basicPLS
+R's formulas are much more flexible than the current framework of plsR
 supports. We have to make sure that users are not trying to fit more complex
-models than what basicPLS allows.
+models than what plsR allows.
 }
 \examples{
-basicPLS:::check_formulas(measurement = alist(C ~ x1 + x2,
+plsR:::check_formulas(measurement = alist(C ~ x1 + x2,
                                               D ~ x3 + x4),
                           structure = alist(D ~ C))
 

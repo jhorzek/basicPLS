@@ -7,8 +7,8 @@
 #' @importFrom stats cov.wt
 #' @export
 #' @examples
-#' library(basicPLS)
-#' data_set <- basicPLS::satisfaction
+#' library(plsR)
+#' data_set <- plsR::satisfaction
 #'
 #' # Both, measurement and structural model are specified using R's formulas:
 #' PLS_result <- PLS(
@@ -34,11 +34,14 @@ get_reliability <- function(PLS_result){
   reliability <- rep(1.0, length(weights))
   names(reliability) <- names(weights)
 
+  imputed_data <- PLS_result$input$imputation_function(data = PLS_result$input$data[, unlist(sapply(weights, names)), drop = FALSE],
+                                                       weights = PLS_result$input$sample_weights)
+
   for(i in PLS_result$input$as_reflective){
     weights_vector <- matrix(weights[[i]], ncol = 1)
 
     # we use the correlation because we are using standardized data in PLS
-    cov_mat <- stats::cov.wt(PLS_result$input$data[, names(weights[[i]])],
+    cov_mat <- stats::cov.wt(imputed_data[, names(weights[[i]]), drop = FALSE],
                              wt = PLS_result$input$sample_weights,
                              cor = TRUE,
                              method = "ML")$cor
