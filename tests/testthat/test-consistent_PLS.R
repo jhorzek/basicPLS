@@ -1,7 +1,7 @@
 test_that("Test consistent PLS", {
   rm(list = ls())
-  library(basicPLS)
-  data_set <- basicPLS::satisfaction
+  library(plsR)
+  data_set <- plsR::satisfaction
 
   # Both, measurement and structural model are specified using R's formulas:
   PLS_result <- PLS(
@@ -101,8 +101,8 @@ VAL =~ val1 + val2 + val3 + val4
 
 test_that("Test consistent PLS - Mixed", {
   rm(list = ls())
-  library(basicPLS)
-  data_set <- basicPLS::satisfaction
+  library(plsR)
+  data_set <- plsR::satisfaction
 
   # Both, measurement and structural model are specified using R's formulas:
   PLS_result <- PLS(
@@ -210,8 +210,8 @@ test_that("Test consistent bootstrap", {
   rm(list = ls())
   set.seed(3453)
   library(cSEM)
-  library(basicPLS)
-  data_set <- basicPLS::satisfaction
+  library(plsR)
+  data_set <- plsR::satisfaction
 
   model <- "
 # Structural model
@@ -232,7 +232,7 @@ SAT =~ sat1 + sat2 + sat3 + sat4
                    .disattenuate = TRUE)
   summarized <- summarize(csem_sat)
 
-  ## Estimate model with basicPLS
+  ## Estimate model with plsR
   basic_sat <- PLS(
     measurement = alist(EXPE ~ expe1 + expe2 + expe3 + expe4 + expe5,
                         IMAG ~ imag1 + imag2 + imag3 + imag4 + imag5,
@@ -250,11 +250,11 @@ SAT =~ sat1 + sat2 + sat3 + sat4
   testthat::expect_true(all(abs(basic_sat$R2adj[names(csem_sat$Estimates$R2adj)] -
                                   csem_sat$Estimates$R2adj) < 1e-3))
 
-  cis <- basicPLS::confidence_intervals(PLS_result = basic_sat,
+  cis <- plsR::confidence_intervals(PLS_result = basic_sat,
                                         R = 100)
 
   for(i in summarized$Estimates$Path_estimates$Name){
-    # the naming differs between basicPLS and cSEM
+    # the naming differs between plsR and cSEM
     name_basic <- gsub("~", "<-", i)
     if(!name_basic %in% cis$confidence_intervals$effects$Parameter)
       stop("Could not find parameter!")
@@ -304,12 +304,12 @@ SAT =~ sat1 + sat2 + sat3 + sat4
   }
 
   # Testing multicore bootstrapping
-  cis <- basicPLS::confidence_intervals(PLS_result = basic_sat,
+  cis <- plsR::confidence_intervals(PLS_result = basic_sat,
                                         R = 100,
                                         parallel = "snow")
 
   for(i in summarized$Estimates$Path_estimates$Name){
-    # the naming differs between basicPLS and cSEM
+    # the naming differs between plsR and cSEM
     name_basic <- gsub("~", "<-", i)
     if(!name_basic %in% cis$confidence_intervals$effects$Parameter)
       stop("Could not find parameter!")

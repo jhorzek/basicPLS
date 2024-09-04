@@ -7,7 +7,7 @@
 #' @param structure alist with formulas defining structural model
 #' @param data data set (data.frame)
 #' @param as_reflective vector with names of composites that should be treated
-#' as reflective. Internally, basicPLS will use mode A estimation for these
+#' as reflective. Internally, plsR will use mode A estimation for these
 #' composites, and mode B estimation for all other composites.
 #' @param consistent should consistent PLS be used? See Dijkstra, T. K., & Henseler, J. (2015).
 #' Consistent partial least squares path modeling. MIS quarterly, 39(2), 297-316.
@@ -29,8 +29,8 @@
 #' @importFrom corpcor wt.scale
 #' @export
 #' @examples
-#' library(basicPLS)
-#' data_set <- basicPLS::satisfaction
+#' library(plsR)
+#' data_set <- plsR::satisfaction
 #'
 #' # Both, measurement and structural model are specified using R's formulas:
 #' PLS_result <- PLS(
@@ -393,15 +393,17 @@ mode_B <- function(measurement,
 print.PLS_SEM <- function(x, ...){
   cat("\n#### PLS SEM Results ####\n")
   cat("Composite Weights:\n")
+  longest_name <- max(nchar(names(x$weights)))
   for(comp in names(x$weights)){
-    cat(paste0(comp, " = ",
+    cat(paste0(comp, rep(" ", longest_name - nchar(comp)), " = ",
                paste0(paste0(format(round(x$weights[[comp]], 3), nsmall = 3), "*", names(x$weights[[comp]])),
                       collapse = " + ")),
         "\n")
   }
   cat("\nEffects:\n")
+  longest_name <- max(nchar(names(x$effects)))
   for(comp in names(x$effects)){
-    cat(paste0(comp, " ~ ",
+    cat(paste0(comp, rep(" ", longest_name - nchar(comp)), " ~ ",
                paste0(paste0(format(round(x$effects[[comp]], 3), nsmall = 3), "*", names(x$effects[[comp]])),
                       collapse = " + ")),
         "\n")
@@ -466,7 +468,7 @@ confidence_intervals <- function(PLS_result,
                             path_estimation,
                             max_iterations,
                             convergence){
-    fit_results <- suppressMessages(basicPLS::PLS(measurement = measurement,
+    fit_results <- suppressMessages(plsR::PLS(measurement = measurement,
                                                   structure = structure,
                                                   data = dat[indices,, drop = FALSE],
                                                   as_reflective = as_reflective,

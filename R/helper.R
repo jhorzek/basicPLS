@@ -1,14 +1,14 @@
 #' check_formulas
 #'
-#' R's formulas are much more flexible than the current framework of basicPLS
+#' R's formulas are much more flexible than the current framework of plsR
 #' supports. We have to make sure that users are not trying to fit more complex
-#' models than what basicPLS allows.
+#' models than what plsR allows.
 #' @param measurement alist with the measurement formulas
 #' @param structure alist with the structural formulas
 #' @param allowed pattern of supported formulas
 #' @returns nothing. Throws error in case of unsupported formulas
 #' @examples
-#' basicPLS:::check_formulas(measurement = alist(C ~ x1 + x2,
+#' plsR:::check_formulas(measurement = alist(C ~ x1 + x2,
 #'                                               D ~ x3 + x4),
 #'                           structure = alist(D ~ C))
 #'
@@ -19,7 +19,7 @@ check_formulas <- function(measurement,
     if(!grepl(pattern = allowed,
               x = paste0(format(form),
                          collapse = "")))
-      stop(paste0("basicPLS currently only supports formulas with the pattern z ~ x + y. ",
+      stop(paste0("plsR currently only supports formulas with the pattern z ~ x + y. ",
                   "The following is not allowed: ",
                   paste0(format(form),
                          collapse = ""), "."))

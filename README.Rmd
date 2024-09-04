@@ -13,21 +13,21 @@ knitr::opts_chunk$set(
 )
 ```
 
-# basicPLS
+# plsR
 
-The objective of basicPLS is to provide a reduced implementation of PLS-SEM. The 
+The objective of plsR is to provide a reduced implementation of PLS-SEM. The 
 package is currently intentionally incomplete, as we are only implementing the
 features we need. The implementation follows that found in [plspm](https://github.com/gastonstat/plspm). 
 
-The main function is `basicPLS::PLS` and fits PLS-SEM with formative 
+The main function is `plsR::PLS` and fits PLS-SEM with formative 
 and pseudo-reflective measurement models (pseudo-reflective because PLS-SEM always
 fits a formative model).
 
 ## Example:
 
 ```{r, message=FALSE}
-library(basicPLS)
-data_set <- basicPLS::satisfaction
+library(plsR)
+data_set <- plsR::satisfaction
 
 # Both, measurement and structural model are specified using R's formulas:
 PLS_result <- PLS(
@@ -75,11 +75,11 @@ PLS_result
 
 ## Weighted PLS
 
-basicPLS can compute weighted PLS estimates:
+plsR can compute weighted PLS estimates:
 
 ```{r}
 # data set with missings:
-data_set <- basicPLS::satisfaction_NA
+data_set <- plsR::satisfaction_NA
 
 PLS_result <- PLS(
   measurement = alist(EXPE ~ expe1 + expe2 + expe3 + expe4 + expe5,
@@ -100,6 +100,4 @@ PLS_result <- PLS(
   sample_weights = data_set$sample_weights
   )
 PLS_result
-
-get_r2(PLS_result)
 ```
