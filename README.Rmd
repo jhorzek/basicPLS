@@ -72,6 +72,8 @@ PLS_result <- PLS(
 PLS_result
 ```
 
+> Note: plsR always uses consistent PLS by default, following the example of
+seminr and cSEM. To switch to standard PLS, use `consistent = FALSE`.
 
 ## Weighted PLS
 
@@ -101,3 +103,13 @@ PLS_result <- PLS(
   )
 PLS_result
 ```
+
+
+## References
+
+* Sanchez G, Trinchera L, Russolillo G (2015). _plspm: Tools for Partial Least Squares
+  Path Modeling (PLS-PM)_. R package version 0.4.9,  <https://github.com/gastonstat/plspm>.
+* Rademaker, Manuel E. and Schuberth, Florian (2020). cSEM: Composite-Based Structural
+  Equation Modeling. Package version: 0.5.0. URL: https://m-e-rademaker.github.io/cSEM/.
+* Ray S, Danks N, Calero Valdez A (2022). _seminr: Building and Estimating Structural
+  Equation Models_. R package version 2.3.1.

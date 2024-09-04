@@ -58,17 +58,17 @@ ci <- confidence_intervals(PLS_result,
                            # increase for actual use:
                            R = 50)
 ci$confidence_intervals$effects
-#>       Parameter     Estimate    lower_ci  upper_ci
-#> 1  QUAL <- EXPE 0.8511298309  0.81042674 0.8734961
-#> 2  EXPE <- IMAG 0.6085981452  0.53349484 0.6877393
-#> 3   SAT <- IMAG 0.2046077647  0.12866312 0.2985650
-#> 4   SAT <- EXPE 0.0005350609 -0.10067839 0.1177541
-#> 5   SAT <- QUAL 0.0856953262 -0.05078731 0.1967623
-#> 6    SAT <- VAL 0.6256122447  0.50896423 0.7383216
-#> 7   LOY <- IMAG 0.2274903742  0.11877971 0.3759603
-#> 8    LOY <- SAT 0.5601144411  0.41744064 0.6749148
-#> 9   VAL <- EXPE 0.1524291435  0.04941029 0.2804409
-#> 10  VAL <- QUAL 0.6478498478  0.52283917 0.7516483
+#>       Parameter     Estimate     lower_ci  upper_ci
+#> 1  QUAL <- EXPE 0.8511298309  0.820028286 0.8835612
+#> 2  EXPE <- IMAG 0.6085981452  0.543981678 0.7016841
+#> 3   SAT <- IMAG 0.2046077647  0.126072475 0.2760832
+#> 4   SAT <- EXPE 0.0005350609 -0.079868391 0.1048078
+#> 5   SAT <- QUAL 0.0856953262 -0.032047061 0.2052671
+#> 6    SAT <- VAL 0.6256122447  0.466782837 0.7183684
+#> 7   LOY <- IMAG 0.2274903742  0.108945367 0.3617675
+#> 8    LOY <- SAT 0.5601144411  0.452140565 0.6699827
+#> 9   VAL <- EXPE 0.1524291435 -0.002308355 0.2958769
+#> 10  VAL <- QUAL 0.6478498478  0.529976839 0.7509732
 ```
 
 To switch to mode_A (“reflective”) for a composite, use `as_reflective`:
@@ -110,6 +110,10 @@ PLS_result
 #> LOY  ~ 0.311*IMAG + 0.515*SAT 
 #> VAL  ~ -1.738*EXPE +  2.585*QUAL
 ```
+
+> Note: plsR always uses consistent PLS by default, following the
+> example of seminr and cSEM. To switch to standard PLS, use
+> `consistent = FALSE`.
 
 ## Weighted PLS
 
@@ -159,3 +163,14 @@ PLS_result
 #> LOY  ~ 0.285*IMAG + 0.550*SAT 
 #> VAL  ~ 0.081*EXPE + 0.726*QUAL
 ```
+
+## References
+
+- Sanchez G, Trinchera L, Russolillo G (2015). *plspm: Tools for Partial
+  Least Squares Path Modeling (PLS-PM)*. R package version 0.4.9,
+  <https://github.com/gastonstat/plspm>.
+- Rademaker, Manuel E. and Schuberth, Florian (2020). cSEM:
+  Composite-Based Structural Equation Modeling. Package version: 0.5.0.
+  URL: <https://m-e-rademaker.github.io/cSEM/>.
+- Ray S, Danks N, Calero Valdez A (2022). *seminr: Building and
+  Estimating Structural Equation Models*. R package version 2.3.1.
